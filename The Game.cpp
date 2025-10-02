@@ -225,27 +225,27 @@ int main()
 
     // canto superior esquerdo (normal)
     sf::Sprite cornerTL(Basement_Corner);
-    cornerTL.setTextureRect(sf::IntRect({ 0, 0 }, { 234, 156 }));
+    cornerTL.setTextureRect(sf::IntRect({ 0, 156 }, { 234, 311 }));
     cornerTL.setPosition({ 0.f, 0.f });
     cornerTL.setScale({ scaleX, scaleY });
 
     // canto superior direito (flip vertical)
     sf::Sprite cornerTR(Basement_Corner);
-    cornerTR.setTextureRect(sf::IntRect({ 0, 0 }, { 234, 156 }));
+    cornerTR.setTextureRect(sf::IntRect({ 0, 156 }, { 234, 311 }));
     cornerTR.setPosition({ 1920.f, 0.f });
     cornerTR.setScale({ -scaleX, scaleY });
 
-    // canto inferior esquerdo (flip horizontal)
+    // canto inferior esquerdo (flip horizontal)pode ser que tu uses
     sf::Sprite cornerBL(Basement_Corner);
     cornerBL.setTextureRect(sf::IntRect({ 0, 0 }, { 234, 156 }));
     cornerBL.setPosition({ 0.f, 1080.f });
-    cornerBL.setScale({ scaleX, -scaleY });
+    cornerBL.setScale({ scaleX, -scaleY-0.1f });
 
     // canto inferior direito (sem simetria perfeita)
     sf::Sprite cornerBR(Basement_Corner);
     cornerBR.setTextureRect(sf::IntRect({ 0, 0 }, { 234, 156 }));
     cornerBR.setPosition({ 1920.f, 1080.f });
-    cornerBR.setScale({ -scaleX, -scaleY });
+    cornerBR.setScale({ -scaleX, -scaleY-0.1f });
 
     // LIMITES INTERNOS (paredes dentro do background)
     float left = 213.33f;
