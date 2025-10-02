@@ -39,3 +39,17 @@
 
 # debug information files
 *.dwo
+
+# Visual Studio
+*.exe
+*.log
+*.tlog
+*.idb
+*.ipdb
+*.iobj
+*.user
+*.suo
+*.VC.db
+.vs/
+x64/Debug/
+x64/Release/
