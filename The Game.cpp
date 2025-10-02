@@ -596,7 +596,7 @@ int main()
 
             // 4. Desenha o sprite na tela
             window.draw(*spriteToDraw);
-
+    
             // 5. Prepara para o próximo slot
             xPosition += heartSpacing; // Move para a direita
             currentHealth -= 2;        // Deduz 2 (um coração completo)
@@ -609,6 +609,7 @@ int main()
         window.draw(Isaac);
         window.draw(eBishop);
         window.display();
+        wtf
     }
 
     return 0;
