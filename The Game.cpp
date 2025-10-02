@@ -609,7 +609,6 @@ int main()
         window.draw(Isaac);
         window.draw(eBishop);
         window.display();
-        wtf1
     }
 
     return 0;
