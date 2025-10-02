@@ -1,56 +1,58 @@
-# Prerequisites
-*.d
+# Compilados automáticos (Debug / Release)
+x64/
+bin/
+obj/
+Debug/
+Release/
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# Visual Studio cache
+.vs/
+*.VC.db
+*.VC.VC.opendb
 
-# Precompiled Headers
-*.gch
-*.pch
-
-# Linker files
-*.ilk
-
-# Debugger Files
-*.pdb
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
-
-# debug information files
-*.dwo
-
-# Visual Studio
-*.exe
+# Logs e temporários
 *.log
 *.tlog
 *.idb
 *.ipdb
 *.iobj
-*.user
+
+# Ficheiros de utilizador (settings locais)
 *.suo
-*.VC.db
-.vs/
-x64/Debug/
-x64/Release/
-x64/	
+*.user
+*.userosscache
+
+# PDB (debug info)
+*.pdb
+*.mdb
+
+# Executáveis e bibliotecas
+*.exe
+*.dll
+*.lib
+*.app
+*.out
+*.so
+*.dylib
+
+# Arquivos de build auxiliares
+*.ilk
+*.obj
+*.o
+*.lo
+*.slo
+*.mod
+*.smod
+*.lai
+*.la
+*.a
+*.d
+*.dwo
+*.gch
+*.pch
+
+# Ficheiros específicos de receitas/build do VS
+*.recipe
+
+# Diretórios de build adicionais (caso apareçam)
+[Bb]uild/
