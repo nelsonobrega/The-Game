@@ -152,6 +152,7 @@ bool loadAnimationTextures() {
 
 enum class GameState {
     menu,
+    firstRoom,
     playing,
     sttings,
     exiting,
@@ -610,6 +611,7 @@ int main()
             }
         }
 
+
         // ATAQUE INIMIGO
         if (enemyCooldownClock.getElapsedTime() >= enemyCooldownTime)
         {
@@ -621,7 +623,6 @@ int main()
             enemyProjectiles.push_back(p);
             enemyCooldownClock.restart();
         }
-
         // CHECAR VIDA
         if (enemyHealth <= 0 || isaacHealth <= 0)
             window.close();
@@ -779,6 +780,6 @@ int main()
         window.draw(eBishop);
         window.display();
     }
-
+    
     return 0;
 }
