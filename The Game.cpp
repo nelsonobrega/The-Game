@@ -1,10 +1,9 @@
-#include "SFML/Graphics.hpp"
+#include "SFML\Graphics.hpp"
 #include <cmath>
 #include <vector>
 #include <iostream>
 #include <algorithm>
 #include <string>
-
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -13,27 +12,56 @@
 // --- VARIÁVEIS GLOBAIS DE ANIMAÇÃO ---
 // Texturas para cada direção do Isaac
 std::vector<sf::Texture> textures_walk_down;
-std::vector<sf::Texture> textures_walk_up;   // W (Back_Isaac)
-std::vector<sf::Texture> textures_walk_left; // A (Left_Isaac)
-std::vector<sf::Texture> textures_walk_right;// D (Right_Isaac)
+std::vector<sf::Texture> textures_walk_up;
+std::vector<sf::Texture> textures_walk_left;
+std::vector<sf::Texture> textures_walk_right;
 
-// Texturas para o Inimigo (agora por direção)
-std::vector<sf::Texture> textures_enemy_walk_down;  // Front_Demon
-std::vector<sf::Texture> textures_enemy_walk_up;    // Back_Demon
-std::vector<sf::Texture> textures_enemy_walk_left;  // Left_Demon
-std::vector<sf::Texture> textures_enemy_walk_right; // Right_Demon
+// Texturas para o Inimigo (Demon)
+std::vector<sf::Texture> textures_enemy_walk_down;
+std::vector<sf::Texture> textures_enemy_walk_up;
+std::vector<sf::Texture> textures_enemy_walk_left;
+std::vector<sf::Texture> textures_enemy_walk_right;
 
+// Texturas para o Inimigo Bishop
+std::vector<sf::Texture> textures_bishop_animation;
 
 
 // Variáveis de animação do Isaac
 int current_frame = 0;
 float animation_time = 0.0f;
-const float frame_duration = 0.100f;        // Duração de cada frame (Isaac)
+const float frame_duration = 0.100f;          // Duração de cada frame (Isaac)
 
-// Variáveis de animação do Inimigo
+// Variáveis de animação do Inimigo (Demon)
 int enemy_current_frame = 0;
 float enemy_animation_time = 0.0f;
-const float enemy_frame_duration = 0.12f;   // Duração de cada frame (Inimigo)
+const float enemy_frame_duration = 0.12f;    // Duração de cada frame (Inimigo)
+
+// Variáveis de animação do Bishop
+int bishop_current_frame = 0;
+float bishop_animation_time = 0.0f;
+const float bishop_frame_duration = 0.08f;       // Duração para frames rápidos (B2-B8, B10-B14)
+sf::Clock bishop_cooldown_clock;                 // Clock para o ciclo de 7 segundos
+const sf::Time bishop_cooldown_time = sf::seconds(7.0f);
+bool is_bishop_animating = false;                // Flag para controlar se está em animação
+const int BISHOP_TOTAL_FRAMES = 14;              // ATUALIZADO: B1 a B14 (14 frames)
+
+// Cooldown para a pausa longa apenas no B9
+const float bishop_long_pause_duration = 1.0f;   // 1 segundo no B9
+float bishop_long_pause_time = 0.0f;             // Temporizador para a pausa
+
+// Variáveis de Efeito de Dano (Red Flash)
+sf::Clock isaacHitClock;
+const sf::Time hitFlashDuration = sf::milliseconds(100); // 0.1 segundos de flash de DANO
+bool isIsaacHit = false;
+
+sf::Clock enemyHitClock;
+bool isEnemyHit = false;
+
+// Variáveis de Efeito de Cura (Green Flash) - ATUALIZADO
+sf::Clock enemyHealClock;
+const sf::Time healFlashDuration = sf::seconds(2.0f); // 2.0 segundos de flash de CURA
+bool isEnemyHealed = false;
+// --------------------------------------
 
 // Estrutura para definir os parâmetros de cada animação
 struct AnimationSet {
@@ -41,6 +69,13 @@ struct AnimationSet {
     std::string prefix;
     int totalFrames;
     std::vector<sf::Texture>* textureVector;
+};
+
+// Estrutura para os Projéteis
+struct Projectile {
+    sf::Sprite sprite;
+    sf::Vector2f direction;
+    float distanceTraveled;
 };
 // --------------------------------------
 
@@ -67,17 +102,20 @@ bool loadAnimationTextures() {
 
     // Configuração de cada animação: Pasta | Prefixo | Frames | Vector
     std::vector<AnimationSet> sets = {
-        // Sets do Isaac (CORRIGIDO: 10 para Front/Back, 6 para Left/Right)
-        {"Front_Isaac", "F", 9, &textures_walk_down}, // 10 frames
-        {"Back_Isaac" , "B", 9, &textures_walk_up},   // 10 frames
-        {"Left_Isaac" , "L", 6,  &textures_walk_left},  // 6 frames
-        {"Right_Isaac", "R", 6,  &textures_walk_right}, // 6 frames
+        // Sets do Isaac
+        {"Front_Isaac", "F", 9, &textures_walk_down},
+        {"Back_Isaac" , "B", 9, &textures_walk_up},
+        {"Left_Isaac" , "L", 6,  &textures_walk_left},
+        {"Right_Isaac", "R", 6,  &textures_walk_right},
 
-        // Sets do Inimigo (Assumindo 8 frames para Front/Back e 6 para Left/Right)
+        // Sets do Inimigo
         {"Front_Demon", "F", 8, &textures_enemy_walk_down},
         {"Back_Demon",  "B", 8, &textures_enemy_walk_up},
         {"Left_Demon",  "L", 8, &textures_enemy_walk_left},
-        {"Right_Demon", "R", 8, &textures_enemy_walk_right}
+        {"Right_Demon", "R", 8, &textures_enemy_walk_right},
+
+        // Set do Bishop (usa BISHOP_TOTAL_FRAMES = 14)
+        {"Bishop", "B", BISHOP_TOTAL_FRAMES, &textures_bishop_animation}
     };
 
     for (const auto& set : sets) {
@@ -85,8 +123,14 @@ bool loadAnimationTextures() {
         for (int i = 0; i < set.totalFrames; ++i) {
             std::string filename;
 
+            // Lógica para o Bishop (B1.png, B2.png, ...)
+            if (set.folderName == "Bishop") {
+                // Formato: Images/Bishop/B1.png
+                filename = base_path + set.folderName + "/" +
+                    set.prefix + std::to_string(i + 1) + ".png";
+            }
             // Lógica para o prefixo do Demónio (sufixo 'D', Ex: F1D.png)
-            if (set.folderName.find("Demon") != std::string::npos) {
+            else if (set.folderName.find("Demon") != std::string::npos) {
                 filename = base_path + set.folderName + "/" +
                     set.prefix + std::to_string(i + 1) + "D.png";
             }
@@ -108,6 +152,7 @@ bool loadAnimationTextures() {
 
 enum class GameState {
     menu,
+    firstRoom,
     playing,
     sttings,
     exiting,
@@ -155,8 +200,6 @@ int main()
         {
             currentState = GameState::exiting;
         }
-
-
 
         //Draw
         window.clear();
@@ -206,14 +249,16 @@ int main()
     Enemy.setScale({ 3.f, 3.f });
     Enemy.setPosition({ 960.f, 540.f });
     Enemy.setOrigin({ 14.f, 16.f });
-    int enemyHealth = 10;
+    int enemyHealth = 10; // Variável global de vida do Demon
 
-    sf::Texture bishopTexture;
-    if (!bishopTexture.loadFromFile("Images/Bishop/B1.png")) return -1;
-    sf::Sprite eBishop(bishopTexture);
+    // BISHOP (Usando as texturas carregadas)
+    sf::Sprite eBishop(textures_bishop_animation[0]); // Começa no B1.png
     eBishop.setScale({ 3.f, 3.f });
     eBishop.setPosition({ 960.f, 540.f });
     eBishop.setOrigin({ 14.f, 16.f });
+
+    // Reinicia o clock do Bishop para começar o ciclo de 7 segundos
+    bishop_cooldown_clock.restart();
 
 
     // BACKGROUND
@@ -263,11 +308,7 @@ int main()
 
     sf::Clock clock;
 
-    struct Projectile {
-        sf::Sprite sprite;
-        sf::Vector2f direction;
-        float distanceTraveled;
-    };
+
     std::vector<Projectile> isaacProjectiles;
     std::vector<Projectile> enemyProjectiles;
 
@@ -398,7 +439,7 @@ int main()
         newPos.y = std::min(std::max(newPos.y, gameBounds.position.y + isaacBounds.size.y / 2.f), gameBounds.position.y + gameBounds.size.y - isaacBounds.size.y / 2.f);
         Isaac.setPosition(newPos);
 
-        // MOVIMENTO INIMIGO
+        // MOVIMENTO INIMIGO (Demon)
         sf::Vector2f dirToIsaac = Isaac.getPosition() - Enemy.getPosition();
         float dist = std::sqrt(dirToIsaac.x * dirToIsaac.x + dirToIsaac.y * dirToIsaac.y);
         if (dist != 0.f)
@@ -407,7 +448,7 @@ int main()
             Enemy.move(dirToIsaac * 100.f * deltaTime.asSeconds());
         }
 
-        // --- LÓGICA DE ANIMAÇÃO DO INIMIGO (ATUALIZADA) ---
+        // --- LÓGICA DE ANIMAÇÃO DO INIMIGO ---
         if (enemyHealth > 0)
         {
             std::vector<sf::Texture>* current_enemy_set = &textures_enemy_walk_down; // Padrão
@@ -451,8 +492,6 @@ int main()
                 }
 
                 // Avança o frame em loop
-                // NOTA: Usamos .size() como fallback caso a contagem do AnimationSet esteja errada
-                // Mas confiamos em current_enemy_total_frames para Left/Right (6) e Down/Up (8)
                 enemy_current_frame = (enemy_current_frame + 1) % current_enemy_total_frames;
 
                 // Aplica a nova textura
@@ -470,6 +509,80 @@ int main()
         newEnemyPos.x = std::min(std::max(newEnemyPos.x, gameBounds.position.x + enemyBounds.size.x / 2.f), gameBounds.position.x + gameBounds.size.x - enemyBounds.size.x / 2.f);
         newEnemyPos.y = std::min(std::max(newEnemyPos.y, gameBounds.position.y + enemyBounds.size.y / 2.f), gameBounds.position.y + gameBounds.size.y - enemyBounds.size.y / 2.f);
         Enemy.setPosition(newEnemyPos);
+
+        // -----------------------------------------------------------------------------------
+        // --- LÓGICA DE ANIMAÇÃO DO BISHOP (COM CURA E NOVO FLASH VERDE) ---
+        // -----------------------------------------------------------------------------------
+
+        if (!is_bishop_animating) {
+            // 1. CHECA SE É HORA DE INICIAR A ANIMAÇÃO (B1 -> B2)
+            if (bishop_cooldown_clock.getElapsedTime() >= bishop_cooldown_time) {
+                is_bishop_animating = true;
+                bishop_current_frame = 1;              // Começa no B2 (Índice 1)
+                bishop_animation_time = 0.0f;
+                bishop_long_pause_time = 0.0f;         // Reset do temporizador de pausa
+                eBishop.setTexture(textures_bishop_animation[bishop_current_frame]); // Aplica B2
+            }
+            // Caso contrário, fica no frame B1 (Índice 0)
+        }
+        else {
+            // 2. EXECUTAR A PAUSA OU A ANIMAÇÃO RÁPIDA
+
+            // **A: Lógica de Pausa no B9**
+            if (bishop_current_frame == 8) { // Frame B9 (Índice 8)
+                bishop_long_pause_time += deltaTime.asSeconds();
+
+                if (bishop_long_pause_time >= bishop_long_pause_duration) {
+                    // Terminou a pausa de 1 segundo, avança para B10
+                    bishop_current_frame++;                // Vai para B10 (Índice 9)
+                    eBishop.setTexture(textures_bishop_animation[bishop_current_frame]);
+                    bishop_animation_time = 0.0f;          // Prepara para a animação rápida de volta
+                }
+            }
+            // **B: Animação Rápida (Frames B2-B8 e B10-B14)**
+            else {
+                bishop_animation_time += deltaTime.asSeconds();
+
+                if (bishop_animation_time >= bishop_frame_duration) {
+                    bishop_animation_time -= bishop_frame_duration;
+
+                    // Avança o frame
+                    bishop_current_frame++;
+
+                    // LÓGICA DE CURA DO DEMON NO B8 (Índice 7)
+                    if (bishop_current_frame == 8) {
+                        if (enemyHealth > 0) {
+                            enemyHealth += 2; // Demon recupera 2 de vida
+                            // ATUALIZADO: Ativa o flash verde de 2.0s
+                            isEnemyHealed = true;
+                            enemyHealClock.restart();
+                            // --------------------------------------------
+                            std::cout << "Bishop chegou em B8! Demon recuperou 2 de vida. Nova vida: " << enemyHealth << std::endl;
+                        }
+                    }
+
+                    // 3. Verifica se a animação chegou ao FIM (após B14)
+                    if (bishop_current_frame >= BISHOP_TOTAL_FRAMES) { // Chegou após B14 (Índice 13)
+                        // FIM DA ANIMAÇÃO, volta ao B1 e reinicia o ciclo
+                        is_bishop_animating = false;
+                        bishop_current_frame = 0;              // Garante que fica em B1
+                        eBishop.setTexture(textures_bishop_animation[0]);
+                        bishop_cooldown_clock.restart();         // Reinicia o ciclo de 7 segundos
+                    }
+                    // 4. Verifica se a animação chegou ao B9 (Para a Pausa)
+                    else if (bishop_current_frame == 8) { // Chegou no B9 (Índice 8)
+                        eBishop.setTexture(textures_bishop_animation[bishop_current_frame]);
+                        bishop_long_pause_time = 0.0f;           // Inicia o contador de pausa
+                        // Não faz mais nada, no próximo frame passará pelo bloco de Pausa (A)
+                    }
+                    // 5. Se não chegou ao fim nem à pausa, aplica a nova textura
+                    else {
+                        eBishop.setTexture(textures_bishop_animation[bishop_current_frame]);
+                    }
+                }
+            }
+        }
+        // -----------------------------------------------------------------------------------
 
         // ATAQUE ISAAC
         if (isaacCooldownClock.getElapsedTime() >= isaacCooldownTime)
@@ -498,6 +611,7 @@ int main()
             }
         }
 
+
         // ATAQUE INIMIGO
         if (enemyCooldownClock.getElapsedTime() >= enemyCooldownTime)
         {
@@ -509,12 +623,11 @@ int main()
             enemyProjectiles.push_back(p);
             enemyCooldownClock.restart();
         }
-
         // CHECAR VIDA
         if (enemyHealth <= 0 || isaacHealth <= 0)
             window.close();
 
-        // PROJETEIS ISAAC
+        // PROJETEIS ISAAC (VERIFICAÇÃO DE DANO NO INIMIGO)
         for (auto it = isaacProjectiles.begin(); it != isaacProjectiles.end(); )
         {
             it->sprite.move(it->direction * isaacHitSpeed * deltaTime.asSeconds());
@@ -524,6 +637,10 @@ int main()
             if (checkCollision(projBounds, Enemy.getGlobalBounds()))
             {
                 enemyHealth--;
+                // ATUALIZAÇÃO DANO INIMIGO (Red Flash)
+                isEnemyHit = true;
+                enemyHitClock.restart();
+                // ---------------------------------
                 std::cout << "Demon sofreu dano! Vida restante: " << enemyHealth << std::endl;
                 it = isaacProjectiles.erase(it);
             }
@@ -533,7 +650,7 @@ int main()
             else ++it;
         }
 
-        // PROJETEIS INIMIGO
+        // PROJETEIS INIMIGO (VERIFICAÇÃO DE DANO NO ISAAC)
         for (auto it = enemyProjectiles.begin(); it != enemyProjectiles.end(); )
         {
             it->sprite.move(it->direction * enemyHitSpeed * deltaTime.asSeconds());
@@ -543,6 +660,10 @@ int main()
             if (checkCollision(projBounds, Isaac.getGlobalBounds()))
             {
                 isaacHealth -= 2;
+                // ATUALIZAÇÃO DANO ISAAC (Red Flash)
+                isIsaacHit = true;
+                isaacHitClock.restart();
+                // ------------------------------
                 std::cout << "Isaac sofreu dano! Vida restante: " << isaacHealth << std::endl;
                 it = enemyProjectiles.erase(it);
             }
@@ -551,6 +672,54 @@ int main()
                 it = enemyProjectiles.erase(it);
             else ++it;
         }
+
+        // ---------------------------------------------
+        // --- LÓGICA DO EFEITO DE DANO/CURA (FLASHES) ---
+
+        // 1. Efeito do Isaac (Dano)
+        if (isIsaacHit) {
+            if (isaacHitClock.getElapsedTime() < hitFlashDuration) {
+                // Fica vermelho durante 0.1s
+                Isaac.setColor(sf::Color::Red);
+            }
+            else {
+                // Retorna ao normal e reseta o flag
+                Isaac.setColor(sf::Color::White);
+                isIsaacHit = false;
+            }
+        }
+
+        // 2. Efeito do Demon (Dano) - Prioridade sobre a Cura
+        if (isEnemyHit) {
+            if (enemyHitClock.getElapsedTime() < hitFlashDuration) {
+                // Fica vermelho durante 0.1s
+                Enemy.setColor(sf::Color::Red);
+            }
+            else {
+                // O dano terminou. Desliga o flag. A cor será redefinida mais abaixo.
+                isEnemyHit = false;
+            }
+        }
+
+        // 3. Efeito do Demon (Cura) - Só é executado se NÃO estiver a piscar vermelho
+        else if (isEnemyHealed) {
+            if (enemyHealClock.getElapsedTime() < healFlashDuration) {
+                // Fica VERDE durante 2.0s - CORREÇÃO APLICADA AQUI!
+                Enemy.setColor(sf::Color::Green);
+            }
+            else {
+                // A cura terminou. Desliga o flag.
+                isEnemyHealed = false;
+            }
+        }
+
+        // 4. Reset da Cor do Demon
+        // A cor deve ser White APENAS se nenhum dos flashes (dano ou cura) estiver ativo.
+        if (!isEnemyHit && !isEnemyHealed) {
+            Enemy.setColor(sf::Color::White);
+        }
+
+        // ---------------------------------------------
 
         // DESENHO
         window.clear();
@@ -596,7 +765,7 @@ int main()
 
             // 4. Desenha o sprite na tela
             window.draw(*spriteToDraw);
-    
+
             // 5. Prepara para o próximo slot
             xPosition += heartSpacing; // Move para a direita
             currentHealth -= 2;        // Deduz 2 (um coração completo)
@@ -607,9 +776,10 @@ int main()
         for (auto& p : isaacProjectiles) window.draw(p.sprite);
         for (auto& p : enemyProjectiles) window.draw(p.sprite);
         window.draw(Isaac);
+        // O Bishop só é desenhado se existir
         window.draw(eBishop);
         window.display();
     }
-
+    
     return 0;
 }
