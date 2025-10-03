@@ -1,4 +1,4 @@
-#include "SFML/Graphics.hpp"
+#include <SFML/Graphics.hpp>
 #include <cmath>
 #include <vector>
 #include <iostream>
@@ -179,7 +179,7 @@ int main()
     sf::Sprite Isaac(textures_walk_down[0]);
     Isaac.setScale({ 3.f, 3.f });
     Isaac.setOrigin({ 13.5f, 17.f });
-    int isaacHealth = 6;
+    int isaacHealth = 6000;
 
     // Variável para rastrear a última animação usada (para manter a pose ao parar)
     std::vector<sf::Texture>* last_animation_set = &textures_walk_down;
@@ -498,6 +498,37 @@ int main()
             }
         }
 
+        sf::Texture knifeTexture;
+        if (knifeTexture.loadFromFile("Images/")) {
+            return -1; // erro se a textura não carregar
+        }
+
+        // --- Sprite do projetil
+        sf::Sprite projectile(knifeTexture);
+        projectile.setOrigin({4.f /2.f,75.f /2.f});
+        projectile.setPosition(Enemy.getPosition());
+
+        // --- Hitbox mais pequena que a textura
+        sf::RectangleShape hitbox(sf::Vector2f(10.f, 10.f)); // tamanho da hitbox
+        hitbox.setFillColor(sf::Color::Transparent);
+        hitbox.setOutlineColor(sf::Color::Red);
+        hitbox.setOutlineThickness(1.f);
+        hitbox.setOrigin(hitbox.getSize() / 2.f);
+
+        // --- Direção e velocidade do projetil
+        sf::Vector2f direction(1.f, 0.f); // direita
+        float speed = 5.f;
+
+        
+
+            // --- Mover o projetil
+            projectile.move(direction * speed);
+
+            // --- Atualizar a hitbox para seguir o centro do sprite
+            hitbox.setPosition(projectile.getPosition());
+
+
+
         // ATAQUE INIMIGO
         if (enemyCooldownClock.getElapsedTime() >= enemyCooldownTime)
         {
@@ -509,7 +540,6 @@ int main()
             enemyProjectiles.push_back(p);
             enemyCooldownClock.restart();
         }
-
         // CHECAR VIDA
         if (enemyHealth <= 0 || isaacHealth <= 0)
             window.close();
@@ -610,6 +640,6 @@ int main()
         window.draw(eBishop);
         window.display();
     }
-
+    
     return 0;
 }
