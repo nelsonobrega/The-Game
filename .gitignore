@@ -4,6 +4,7 @@ bin/
 obj/
 Debug/
 Release/
+.vcxproj.user/
 
 # Visual Studio cache
 .vs/
