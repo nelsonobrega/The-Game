@@ -1,5 +1,35 @@
 #include "Game.hpp"
+#include "Utils.hpp"
 #include <iostream>
+#include <cstdlib> // Para rand() e srand()
+#include <ctime>   // Para time()
+
+// --- Definições de Texturas (para clareza) ---
+// É importante definir estas constantes globalmente ou dentro de um escopo adequado.
+// Se estiver no Game.cpp, isto funciona.
+const sf::IntRect TEXTURE_OPTION_A = { {0, 0 }, { 234, 156 } };   // Start Y=0, Height=156
+const sf::IntRect TEXTURE_OPTION_B = { {0, 156 }, {234, 155} }; // Start Y=156, Height=155
+const sf::IntRect TEXTURE_OPTION_C = { {234, 0}, {234,155} };
+
+// --- Função Auxiliar para Aleatorizar a Textura ---
+// (Pode ser uma função membro estática privada ou uma função livre no Game.cpp)
+sf::IntRect getRandomCornerTexture() {
+    // Sorteia 0 a n
+    int choice = rand() % 3;
+
+    if (choice == 0) {
+        return TEXTURE_OPTION_A;
+    }
+    if (choice == 1) {
+        return TEXTURE_OPTION_C;
+    }
+    
+    else {
+        return TEXTURE_OPTION_B;
+    }
+}
+
+// --- Implementação da Classe Game ---
 
 void Game::loadGameAssets() {
     assets.loadAnimation("I_Down", "Front_Isaac", "F", 9, "V1.png");
@@ -28,6 +58,9 @@ Game::Game()
     currentState(GameState::menu),
     assets(AssetManager::getInstance())
 {
+    // Inicializa o gerador de números aleatórios (SÓ PRECISA SER CHAMADO UMA VEZ!)
+    std::srand(std::time(NULL));
+
     loadGameAssets();
 
     // Inicializa os objetos opcionais com emplace para evitar erros de construtor padrão e operador de atribuição
@@ -44,31 +77,38 @@ Game::Game()
 
     setupMenu();
 
-    // Inicializar sprites opcionais com las texturas cargadas
+    // Inicializar sprites opcionais com as texturas cargadas
     cornerTL.emplace(assets.getTexture("BasementCorner"));
     cornerTR.emplace(assets.getTexture("BasementCorner"));
     cornerBL.emplace(assets.getTexture("BasementCorner"));
     cornerBR.emplace(assets.getTexture("BasementCorner"));
 
-    // Setup basement corners
+    // ------------------------------------------------------------------
+    // Setup basement corners (AGORA COM ALEATORIEDADE)
+    // ------------------------------------------------------------------
     float scaleX = 960.f / 234.f;
     float scaleY = 540.f / 156.f;
 
-    cornerTL->setTextureRect(sf::IntRect({ 0, 156 }, { 234, 311 }));
+    // Canto Superior Esquerdo (TL)
+    cornerTL->setTextureRect(getRandomCornerTexture()); // <--- ALTERAÇÃO
     cornerTL->setPosition({ 0.f, 0.f });
     cornerTL->setScale({ scaleX, scaleY });
 
-    cornerTR->setTextureRect(sf::IntRect({ 0, 156 }, { 234, 311 }));
+    // Canto Superior Direito (TR)
+    cornerTR->setTextureRect(getRandomCornerTexture()); // <--- ALTERAÇÃO
     cornerTR->setPosition({ 1920.f, 0.f });
     cornerTR->setScale({ -scaleX, scaleY });
 
-    cornerBL->setTextureRect(sf::IntRect({ 0, 0 }, { 234, 156 }));
+    // Canto Inferior Esquerdo (BL)
+    cornerBL->setTextureRect(getRandomCornerTexture()); // <--- ALTERAÇÃO
     cornerBL->setPosition({ 0.f, 1080.f });
     cornerBL->setScale({ scaleX, -scaleY - 0.1f });
 
-    cornerBR->setTextureRect(sf::IntRect({ 0, 0 }, { 234, 156 }));
+    // Canto Inferior Direito (BR)
+    cornerBR->setTextureRect(getRandomCornerTexture()); // <--- ALTERAÇÃO
     cornerBR->setPosition({ 1920.f, 1080.f });
     cornerBR->setScale({ -scaleX, -scaleY - 0.1f });
+    // ------------------------------------------------------------------
 
     // Define game bounds
     float left = 213.33f;
@@ -159,12 +199,28 @@ void Game::update(float deltaTime) {
         }
     }
 
-    if (Isaac && Enemy) {
+    if (Isaac) { // Não precisamos de verificar Enemy aqui, pois a colisão será verificada abaixo
         auto& isaacProjectiles = Isaac->getProjectiles();
+
+        // Iteramos pelos projéteis do jogador
         for (auto it = isaacProjectiles.begin(); it != isaacProjectiles.end();) {
             sf::FloatRect projBounds = it->sprite.getGlobalBounds();
-            if (Enemy->getHealth() > 0 && checkCollision(projBounds, Enemy->getGlobalBounds())) {
+            bool projectile_hit = false;
+
+            // 1. COLISÃO COM O DEMON (Enemy)
+            if (Enemy && Enemy->getHealth() > 0 && checkCollision(projBounds, Enemy->getGlobalBounds())) {
                 Enemy->takeDamage(1);
+                projectile_hit = true;
+            }
+
+            // 2. COLISÃO COM O BISHOP (eBishop) - PARTE QUE FALTAVA!
+            if (eBishop && eBishop->getHealth() > 0 && checkCollision(projBounds, eBishop->getGlobalBounds())) {
+                eBishop->takeDamage(1);
+                projectile_hit = true;
+            }
+
+            // Se o projétil atingiu qualquer inimigo, apaga-o.
+            if (projectile_hit) {
                 it = isaacProjectiles.erase(it);
             }
             else {
@@ -173,6 +229,7 @@ void Game::update(float deltaTime) {
         }
     }
 
+    // Colisão dos projéteis inimigos (Demon) com o Player
     if (Isaac && Enemy) {
         auto& enemyProjectiles = Enemy->getProjectiles();
         for (auto it = enemyProjectiles.begin(); it != enemyProjectiles.end();) {
@@ -187,7 +244,11 @@ void Game::update(float deltaTime) {
         }
     }
 
-    if ((Enemy && Enemy->getHealth() <= 0) || (Isaac && Isaac->getHealth() <= 0)) {
+    if ((Enemy && Enemy->getHealth() <= 0) && (eBishop && eBishop->getHealth() <= 0)) {
+        // Lógica de fim de jogo/sala
+    }
+
+    if (Isaac && Isaac->getHealth() <= 0) {
         window.close();
     }
 }
@@ -199,6 +260,7 @@ void Game::render() {
     if (cornerTR) window.draw(*cornerTR);
     if (cornerBL) window.draw(*cornerBL);
     if (cornerBR) window.draw(*cornerBR);
+
 
     if (!Isaac) return;
 
@@ -237,3 +299,5 @@ bool Game::isMouseOver(const sf::Sprite& sprite) {
     auto mousePos = sf::Vector2f(sf::Mouse::getPosition(window));
     return sprite.getGlobalBounds().contains(mousePos);
 }
+
+// Fim do Game.cpp (ou do seu arquivo de implementação)

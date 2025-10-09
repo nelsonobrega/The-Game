@@ -1,10 +1,14 @@
 #include "enemy.hpp"
 #include <algorithm>
 #include <stdexcept> 
+    
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+
+// DEFINIÇÕES de checkCollision e calculateAngle REMOVIDAS DAQUI!
+// Elas agora estão APENAS em Utils.cpp.
 
 // --- Base Class Implementations ---
 void EnemyBase::takeDamage(int amount) {
@@ -38,7 +42,6 @@ std::vector<EnemyProjectile>& EnemyBase::getProjectiles() {
     return projectiles;
 }
 
-// CORREÇÃO: Garante que o sprite volta a Branco se o flash terminar e não estiver a curar.
 void EnemyBase::handleHitFlash() {
     if (!sprite) return;
 
@@ -48,7 +51,6 @@ void EnemyBase::handleHitFlash() {
         }
         else {
             isHit = false;
-            // Volta a branco se não estiver no ciclo de cura
             if (!isHealed) {
                 sprite->setColor(sf::Color::White);
             }
@@ -62,7 +64,15 @@ void EnemyBase::updateProjectiles(float deltaTime, const sf::FloatRect& gameBoun
         it->distanceTraveled += enemyHitSpeed * deltaTime;
         sf::FloatRect projBounds = it->sprite.getGlobalBounds();
 
-        if (it->distanceTraveled >= maxHitDistance || !checkCollision(projBounds, gameBounds))
+        sf::Vector2f center = projBounds.position + projBounds.size / 2.f;
+
+        bool is_outside_bounds = center.x < gameBounds.position.x ||
+            center.x > gameBounds.position.x + gameBounds.size.x ||
+            center.y < gameBounds.position.y ||
+            center.y > gameBounds.position.y + gameBounds.size.y;
+
+
+        if (it->distanceTraveled >= maxHitDistance || is_outside_bounds)
             it = projectiles.erase(it);
         else
             ++it;
@@ -102,7 +112,6 @@ Demon_ALL::Demon_ALL(
 
 void Demon_ALL::takeDamage(int amount) {
     EnemyBase::takeDamage(amount);
-    // Reinicia o flash de cura para que o dano tenha prioridade visual imediata
     isHealed = false;
     if (sprite) sprite->setColor(sf::Color::Red);
 }
@@ -111,10 +120,9 @@ void Demon_ALL::heal(int amount) {
     health = std::min(10, health + amount);
     isHealed = true;
     healClock.restart();
-    isHit = false; // Cura anula o flash de dano
+    isHit = false;
 }
 
-// CORREÇÃO: Garante que o sprite volta a Branco quando o flash de cura termina.
 void Demon_ALL::handleHealFlash() {
     if (!sprite) return;
 
@@ -124,13 +132,12 @@ void Demon_ALL::handleHealFlash() {
         }
         else {
             isHealed = false;
-            // Volta a Branco/Normal.
             sprite->setColor(sf::Color::White);
         }
     }
 }
 
-void Demon_ALL::handleMovementAndAnimation(float deltaTime, sf::Vector2f dirToPlayer) {
+void Demon_ALL::handleMovementAndAnimation(float deltaTime, sf::Vector2f dirToPlayer, const sf::FloatRect& gameBounds) {
     std::vector<sf::Texture>* current_animation_set = textures_walk_down;
     int current_total_frames = 8;
 
@@ -144,7 +151,6 @@ void Demon_ALL::handleMovementAndAnimation(float deltaTime, sf::Vector2f dirToPl
     if (!current_animation_set) return;
 
     animation_time += deltaTime;
-
     if (animation_time >= frame_duration) {
         animation_time -= frame_duration;
         current_frame = (current_frame + 1) % current_total_frames;
@@ -153,7 +159,22 @@ void Demon_ALL::handleMovementAndAnimation(float deltaTime, sf::Vector2f dirToPl
             sprite->setTexture(current_animation_set->at(current_frame));
     }
 
-    sprite->move(dirToPlayer * speed * deltaTime);
+    sf::Vector2f movement = dirToPlayer * speed * deltaTime;
+
+    sf::FloatRect currentBounds = sprite->getGlobalBounds();
+    sf::FloatRect tentativeBounds = currentBounds;
+
+    tentativeBounds.position.x += movement.x;
+    tentativeBounds.position.y += movement.y;
+
+    bool is_within_bounds = tentativeBounds.position.x >= gameBounds.position.x &&
+        tentativeBounds.position.y >= gameBounds.position.y &&
+        tentativeBounds.position.x + tentativeBounds.size.x <= gameBounds.position.x + gameBounds.size.x &&
+        tentativeBounds.position.y + tentativeBounds.size.y <= gameBounds.position.y + gameBounds.size.y;
+
+    if (is_within_bounds) {
+        sprite->move(movement);
+    }
 }
 
 void Demon_ALL::handleAttack(sf::Vector2f dirToPlayer, sf::Vector2f playerPosition) {
@@ -161,8 +182,9 @@ void Demon_ALL::handleAttack(sf::Vector2f dirToPlayer, sf::Vector2f playerPositi
 
     if (cooldownClock.getElapsedTime() >= cooldownTime) {
         EnemyProjectile p = { sf::Sprite(*projectileTexture), dirToPlayer, 0.f };
-        p.sprite.setOrigin({ 4.f / 2.f,74.f / 2.f });
+        p.sprite.setOrigin({ 4.f / 2.f, 74.f / 2.f });
         p.sprite.setPosition(sprite->getPosition());
+        // calculateAngle agora chama a versão global do Utils.cpp
         float angle = calculateAngle(sprite->getPosition(), playerPosition);
         p.sprite.setRotation(sf::degrees(angle - 90.f));
         projectiles.push_back(p);
@@ -177,14 +199,14 @@ void Demon_ALL::update(float deltaTime, sf::Vector2f playerPosition, const sf::F
     sf::Vector2f dirToPlayer = playerPosition - demonPos;
     float distance = std::sqrt(dirToPlayer.x * dirToPlayer.x + dirToPlayer.y * dirToPlayer.y);
 
-    if (distance > 0) {
+    if (distance > 0.f) {
         dirToPlayer /= distance;
     }
     else {
         dirToPlayer = { 0.f, 0.f };
     }
 
-    handleMovementAndAnimation(deltaTime, dirToPlayer);
+    handleMovementAndAnimation(deltaTime, dirToPlayer, gameBounds);
     handleAttack(dirToPlayer, playerPosition);
     updateProjectiles(deltaTime, gameBounds);
 
@@ -197,9 +219,9 @@ void Demon_ALL::draw(sf::RenderWindow& window) {
 }
 
 // --- Bishop_ALL Implementations ---
-Bishop_ALL::Bishop_ALL(std::vector<sf::Texture>& animationTextures)
+Bishop_ALL::Bishop_ALL(std::vector<sf::Texture>& animationTextures, int initialHealth)
 {
-    health = 1;
+    health = initialHealth;
     speed = 0.f;
 
     textures_animation = &animationTextures;

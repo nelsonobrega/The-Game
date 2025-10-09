@@ -7,8 +7,16 @@
 #include <iostream>
 #include <cmath>
 
-bool checkCollision(const sf::FloatRect& a, const sf::FloatRect& b);
-float calculateAngle(const sf::Vector2f& p1, const sf::Vector2f& p2);
+// NOVO: Incluir o ficheiro de utilidade partilhado
+#include "Utils.hpp"
+
+// Não precisamos do M_PI aqui se já estiver em Utils.hpp
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+// Declarações de checkCollision e calculateAngle REMOVIDAS daqui
+// (estão agora em Utils.hpp)
 
 struct EnemyProjectile {
     sf::Sprite sprite;
@@ -84,7 +92,7 @@ private:
     sf::Clock cooldownClock;
     sf::Time cooldownTime = sf::seconds(3.5f);
 
-    void handleMovementAndAnimation(float deltaTime, sf::Vector2f dirToPlayer);
+    void handleMovementAndAnimation(float deltaTime, sf::Vector2f dirToPlayer, const sf::FloatRect& gameBounds);
     void handleAttack(sf::Vector2f dirToPlayer, sf::Vector2f playerPosition);
     void handleHealFlash();
 
@@ -92,7 +100,7 @@ private:
 
 class Bishop_ALL : public EnemyBase {
 public:
-    Bishop_ALL(std::vector<sf::Texture>& animationTextures);
+    Bishop_ALL(std::vector<sf::Texture>& animationTextures, int initialHealth = 20);
 
     void update(float deltaTime, sf::Vector2f playerPosition, const sf::FloatRect& gameBounds) override;
     void draw(sf::RenderWindow& window) override;

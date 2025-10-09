@@ -1,26 +1,16 @@
 #include "player.hpp"
-#include "SFML/Window/Keyboard.hpp" 
+#include "SFML/Window/Keyboard.hpp"  
 #include <algorithm>
 #include <iostream>
+#include <cmath>
 
+// M_PI está agora em Utils.hpp (pode ser redundante aqui, mas não é problemático)
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
-bool checkCollision(const sf::FloatRect& a, const sf::FloatRect& b)
-{
-    return (a.position.x < b.position.x + b.size.x &&
-        a.position.x + a.size.x > b.position.x &&
-        a.position.y < b.position.y + b.size.y &&
-        a.position.y + a.size.y > b.position.y);
-}
-
-float calculateAngle(const sf::Vector2f& p1, const sf::Vector2f& p2)
-{
-    float dx = p2.x - p1.x;
-    float dy = p2.y - p1.y;
-    return static_cast<float>(std::atan2(dy, dx) * 180.0f / M_PI);
-}
+// IMPLEMENTAÇÕES DE checkCollision E calculateAngle REMOVIDAS DAQUI!
+// Elas agora estão APENAS em Utils.cpp.
 
 Player_ALL::Player_ALL(
     std::vector<sf::Texture>& walkDownTextures,
@@ -153,7 +143,7 @@ void Player_ALL::handleAttack() {
         struct KeyDir { sf::Keyboard::Scancode key; sf::Vector2f dir; float rot; };
         KeyDir dirs[4] = {
             {sf::Keyboard::Scancode::Up,    {0.f,-1.f}, -180.f},
-            {sf::Keyboard::Scancode::Down,  {0.f,1.f},   0.f},
+            {sf::Keyboard::Scancode::Down,  {0.f,1.f},    0.f},
             {sf::Keyboard::Scancode::Left,  {-1.f,0.f},  90.f},
             {sf::Keyboard::Scancode::Right, {1.f,0.f},  -90.f}
         };
@@ -179,6 +169,7 @@ void Player_ALL::updateProjectiles(float deltaTime, const sf::FloatRect& gameBou
         it->distanceTraveled += isaacHitSpeed * deltaTime;
         sf::FloatRect projBounds = it->sprite.getGlobalBounds();
 
+        // checkCollision agora chama a versão global do Utils.cpp
         if (it->distanceTraveled >= maxHitDistance || !checkCollision(projBounds, gameBounds))
             it = projectiles.erase(it);
         else

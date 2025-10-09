@@ -6,14 +6,17 @@
 #include <optional>
 #include <cmath>
 
+// NOVO: Incluir o ficheiro de utilidade para ter acesso às declarações
+#include "Utils.hpp" 
+
 struct Projectile {
     sf::Sprite sprite;
     sf::Vector2f direction;
     float distanceTraveled;
 };
 
-bool checkCollision(const sf::FloatRect& a, const sf::FloatRect& b);
-float calculateAngle(const sf::Vector2f& p1, const sf::Vector2f& p2);
+// Declarações de checkCollision e calculateAngle REMOVIDAS daqui
+// (estão agora em Utils.hpp)
 
 class Player_ALL {
 public:
