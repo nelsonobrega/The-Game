@@ -10,7 +10,6 @@
 
 // DECLARAÇÕES GLOBAIS
 // Estas são as únicas cópias globais.
-bool checkCollision(const sf::FloatRect& a, const sf::FloatRect& b);
 float calculateAngle(const sf::Vector2f& p1, const sf::Vector2f& p2);
 
 #endif // UTILS_HPP

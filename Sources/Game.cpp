@@ -4,30 +4,46 @@
 #include <cstdlib> // Para rand() e srand()
 #include <ctime>   // Para time()
 
-// --- Definições de Texturas (para clareza) ---
-// É importante definir estas constantes globalmente ou dentro de um escopo adequado.
-// Se estiver no Game.cpp, isto funciona.
-const sf::IntRect TEXTURE_OPTION_A = { {0, 0 }, { 234, 156 } };   // Start Y=0, Height=156
-const sf::IntRect TEXTURE_OPTION_B = { {0, 156 }, {234, 155} }; // Start Y=156, Height=155
-const sf::IntRect TEXTURE_OPTION_C = { {234, 0}, {234,155} };
+// --- Definições de Texturas de Canto (3 Opções Aleatórias) ---
+// { {x, y}, {w, h} }
+const sf::IntRect TEXTURE_OPTION_A = { {0, 0 }, { 234, 156 } };
+const sf::IntRect TEXTURE_OPTION_B = { {0, 156 }, {234, 155} };
+const sf::IntRect TEXTURE_OPTION_C = { {234, 0}, {234, 155} };
+
+// --- Definições dos Recortes de Projéteis ---
+const sf::IntRect ISAAC_TEAR_RECT = { {8, 39}, {16, 16} };
+const sf::IntRect DEMON_TEAR_RECT = { {8, 103}, {16, 16} };
 
 // --- Função Auxiliar para Aleatorizar a Textura ---
-// (Pode ser uma função membro estática privada ou uma função livre no Game.cpp)
 sf::IntRect getRandomCornerTexture() {
-    // Sorteia 0 a n
+    // Sorteia entre 0, 1 ou 2 (3 opções)
     int choice = rand() % 3;
 
     if (choice == 0) {
         return TEXTURE_OPTION_A;
     }
-    if (choice == 1) {
-        return TEXTURE_OPTION_C;
-    }
-    
-    else {
+    else if (choice == 1) {
         return TEXTURE_OPTION_B;
     }
+    else { // choice é 2
+        return TEXTURE_OPTION_C;
+    }
 }
+
+// --- Funções de Colisão Manual (Compatível com SFML 3.0) ---
+bool checkCollisionManual(const sf::FloatRect& rect1, const sf::FloatRect& rect2) {
+    // Colisão no eixo X
+    bool x_overlap = rect1.position.x < rect2.position.x + rect2.size.x &&
+        rect1.position.x + rect1.size.x > rect2.position.x;
+
+    // Colisão no eixo Y
+    bool y_overlap = rect1.position.y < rect2.position.y + rect2.size.y &&
+        rect1.position.y + rect1.size.y > rect2.position.y;
+
+    return x_overlap && y_overlap;
+}
+// ----------------------------------------------------------
+
 
 // --- Implementação da Classe Game ---
 
@@ -36,13 +52,14 @@ void Game::loadGameAssets() {
     assets.loadAnimation("I_Up", "Back_Isaac", "B", 9, "V1.png");
     assets.loadAnimation("I_Left", "Left_Isaac", "L", 6, "V1.png");
     assets.loadAnimation("I_Right", "Right_Isaac", "R", 6, "V1.png");
-    assets.loadTexture("Hit", "Images/Hit.png");
+
+    // CARREGAR A SPRITESHEET DE LÁGRIMAS (PROJÉTEIS)
+    assets.loadTexture("TearAtlas", "Images/Tears/bulletatlas.png");
 
     assets.loadAnimation("D_Down", "Front_Demon", "F", 8, "D.png");
     assets.loadAnimation("D_Up", "Back_Demon", "B", 8, "D.png");
     assets.loadAnimation("D_Left", "Left_Demon", "L", 8, "D.png");
     assets.loadAnimation("D_Right", "Right_Demon", "R", 8, "D.png");
-    assets.loadTexture("EnemyHit", "Images/Enemy_Knife.png");
 
     assets.loadAnimation("Bishop", "Bishop", "B", 14, ".png");
 
@@ -58,16 +75,32 @@ Game::Game()
     currentState(GameState::menu),
     assets(AssetManager::getInstance())
 {
-    // Inicializa o gerador de números aleatórios (SÓ PRECISA SER CHAMADO UMA VEZ!)
+    // Inicializa o gerador de números aleatórios (MUITO IMPORTANTE!)
     std::srand(std::time(NULL));
 
     loadGameAssets();
 
-    // Inicializa os objetos opcionais com emplace para evitar erros de construtor padrão e operador de atribuição
-    Isaac.emplace(assets.getAnimationSet("I_Down"), assets.getTexture("Hit"));
-    Enemy.emplace(assets.getAnimationSet("D_Down"), assets.getAnimationSet("D_Up"),
+    // --- CONFIGURAÇÃO DO ISAAC ---
+    Isaac.emplace(assets.getAnimationSet("I_Down"), assets.getTexture("TearAtlas"));
+
+    if (Isaac) {
+        Isaac->setProjectileTextureRect(ISAAC_TEAR_RECT);
+    }
+
+    // --- CONFIGURAÇÃO DO DEMON ---
+    Enemy.emplace(
+        assets.getAnimationSet("D_Down"), assets.getAnimationSet("D_Up"),
         assets.getAnimationSet("D_Left"), assets.getAnimationSet("D_Right"),
-        assets.getTexture("EnemyHit"));
+        assets.getTexture("TearAtlas")
+    );
+
+    // NOVO: CHAMA A FUNÇÃO PARA DIZER AO DEMON QUAL RECORTE USAR
+    if (Enemy) {
+        Enemy->setProjectileTextureRect(DEMON_TEAR_RECT); // Aplica o recorte escuro
+        std::cout << "Demon inicializado com novo recorte de projetil.\n";
+    }
+
+    // --- CONFIGURAÇÃO DO BISHOP ---
     eBishop.emplace(assets.getAnimationSet("Bishop"));
 
     // Inicializa sprites opcionais para corações
@@ -84,28 +117,28 @@ Game::Game()
     cornerBR.emplace(assets.getTexture("BasementCorner"));
 
     // ------------------------------------------------------------------
-    // Setup basement corners (AGORA COM ALEATORIEDADE)
+    // Setup basement corners (COM ALEATORIEDADE E 3 OPÇÕES)
     // ------------------------------------------------------------------
     float scaleX = 960.f / 234.f;
     float scaleY = 540.f / 156.f;
 
     // Canto Superior Esquerdo (TL)
-    cornerTL->setTextureRect(getRandomCornerTexture()); // <--- ALTERAÇÃO
+    cornerTL->setTextureRect(getRandomCornerTexture());
     cornerTL->setPosition({ 0.f, 0.f });
     cornerTL->setScale({ scaleX, scaleY });
 
     // Canto Superior Direito (TR)
-    cornerTR->setTextureRect(getRandomCornerTexture()); // <--- ALTERAÇÃO
+    cornerTR->setTextureRect(getRandomCornerTexture());
     cornerTR->setPosition({ 1920.f, 0.f });
     cornerTR->setScale({ -scaleX, scaleY });
 
     // Canto Inferior Esquerdo (BL)
-    cornerBL->setTextureRect(getRandomCornerTexture()); // <--- ALTERAÇÃO
+    cornerBL->setTextureRect(getRandomCornerTexture());
     cornerBL->setPosition({ 0.f, 1080.f });
     cornerBL->setScale({ scaleX, -scaleY - 0.1f });
 
     // Canto Inferior Direito (BR)
-    cornerBR->setTextureRect(getRandomCornerTexture()); // <--- ALTERAÇÃO
+    cornerBR->setTextureRect(getRandomCornerTexture());
     cornerBR->setPosition({ 1920.f, 1080.f });
     cornerBR->setScale({ -scaleX, -scaleY - 0.1f });
     // ------------------------------------------------------------------
@@ -115,6 +148,9 @@ Game::Game()
     float top = 179.80f;
     float width = 1493.34f;
     float height = 720.40f;
+
+    // IMPORTANTE: O construtor sf::FloatRect({x, y}, {w, h}) continua o mesmo no SFML 3.0,
+    // mas o acesso aos seus membros é que mudou.
     gameBounds = sf::FloatRect({ left, top }, { width, height });
 
     // Set textures for Isaac animations (atualiza ponteiros para animações)
@@ -194,12 +230,12 @@ void Game::update(float deltaTime) {
 
     if (eBishop && eBishop->shouldHealDemon()) {
         if (Enemy && Enemy->getHealth() > 0) {
-            Enemy->heal(2);
+            Enemy->heal(3);
             eBishop->resetHealFlag();
         }
     }
 
-    if (Isaac) { // Não precisamos de verificar Enemy aqui, pois a colisão será verificada abaixo
+    if (Isaac) {
         auto& isaacProjectiles = Isaac->getProjectiles();
 
         // Iteramos pelos projéteis do jogador
@@ -207,14 +243,14 @@ void Game::update(float deltaTime) {
             sf::FloatRect projBounds = it->sprite.getGlobalBounds();
             bool projectile_hit = false;
 
-            // 1. COLISÃO COM O DEMON (Enemy)
-            if (Enemy && Enemy->getHealth() > 0 && checkCollision(projBounds, Enemy->getGlobalBounds())) {
+            // 1. COLISÃO COM O DEMON (Enemy) - USANDO LÓGICA MANUAL (SFML 3.0)
+            if (Enemy && Enemy->getHealth() > 0 && checkCollisionManual(projBounds, Enemy->getGlobalBounds())) {
                 Enemy->takeDamage(1);
                 projectile_hit = true;
             }
 
-            // 2. COLISÃO COM O BISHOP (eBishop) - PARTE QUE FALTAVA!
-            if (eBishop && eBishop->getHealth() > 0 && checkCollision(projBounds, eBishop->getGlobalBounds())) {
+            // 2. COLISÃO COM O BISHOP (eBishop) - USANDO LÓGICA MANUAL (SFML 3.0)
+            if (eBishop && eBishop->getHealth() > 0 && checkCollisionManual(projBounds, eBishop->getGlobalBounds())) {
                 eBishop->takeDamage(1);
                 projectile_hit = true;
             }
@@ -234,8 +270,9 @@ void Game::update(float deltaTime) {
         auto& enemyProjectiles = Enemy->getProjectiles();
         for (auto it = enemyProjectiles.begin(); it != enemyProjectiles.end();) {
             sf::FloatRect projBounds = it->sprite.getGlobalBounds();
-            if (Isaac->getHealth() > 0 && checkCollision(projBounds, Isaac->getGlobalBounds())) {
-                Isaac->takeDamage(2);
+            // USANDO LÓGICA MANUAL (SFML 3.0)
+            if (Isaac->getHealth() > 0 && checkCollisionManual(projBounds, Isaac->getGlobalBounds())) {
+                Isaac->takeDamage(1);
                 it = enemyProjectiles.erase(it);
             }
             else {
@@ -256,6 +293,7 @@ void Game::update(float deltaTime) {
 void Game::render() {
     window.clear();
 
+    // Desenho dos Cantos da Sala (Com Aleatoriedade)
     if (cornerTL) window.draw(*cornerTL);
     if (cornerTR) window.draw(*cornerTR);
     if (cornerBL) window.draw(*cornerBL);
@@ -299,5 +337,3 @@ bool Game::isMouseOver(const sf::Sprite& sprite) {
     auto mousePos = sf::Vector2f(sf::Mouse::getPosition(window));
     return sprite.getGlobalBounds().contains(mousePos);
 }
-
-// Fim do Game.cpp (ou do seu arquivo de implementação)
