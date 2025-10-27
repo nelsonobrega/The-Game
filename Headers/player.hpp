@@ -5,6 +5,10 @@
 #include <vector>
 #include <optional>
 #include <iostream>
+#include "ConfigManager.hpp" 
+#include "Utils.hpp" // Incluir Utils para M_PI e outras funções
+
+// *** NENHUMA DEFINIÇÃO DE CONSTANTE PI AQUI ***
 
 struct Projectile {
     sf::Sprite sprite;
@@ -16,7 +20,10 @@ class Player_ALL {
 public:
     Player_ALL(
         std::vector<sf::Texture>& walkDownTextures,
-        sf::Texture& hitTextureRef);
+        sf::Texture& hitTextureRef,
+        std::vector<sf::Texture>& walkUpTextures,
+        std::vector<sf::Texture>& walkLeftTextures,
+        std::vector<sf::Texture>& walkRightTextures);
 
     void setProjectileTextureRect(const sf::IntRect& rect);
 
@@ -29,17 +36,26 @@ public:
     std::vector<Projectile>& getProjectiles();
     sf::FloatRect getGlobalBounds() const;
 
-    // Ponteiros para as texturas (definidos na Game)
     std::vector<sf::Texture>* textures_walk_up = nullptr;
     std::vector<sf::Texture>* textures_walk_left = nullptr;
     std::vector<sf::Texture>* textures_walk_right = nullptr;
 
 private:
     std::optional<sf::Sprite> Isaac;
-    int health = 6;
-    float speed = 350.f;
-    const float isaacHitSpeed = 750.f;
-    const float maxHitDistance = 900.f;
+
+    // VARIÁVEIS CARREGADAS DA CONFIGURAÇÃO (Sem problemas)
+    int health = 0;
+    float speed = 0.f;
+    float isaacHitSpeed = 0.f;
+    float maxHitDistance = 0.f;
+    sf::Time hitFlashDuration;
+
+    // VARIÁVEIS RESTAURADAS COMO CONSTANTES
+    const float frame_duration = 0.1f;
+    const sf::Time cooldownTime = sf::seconds(0.3f);
+    const int frames_vertical = 9;
+    const int frames_horizontal = 6;
+
 
     std::vector<sf::Texture>* textures_walk_down = nullptr;
     sf::Texture* hitTexture = nullptr;
@@ -48,13 +64,9 @@ private:
     std::vector<sf::Texture>* last_animation_set = nullptr;
     int current_frame = 0;
     float animation_time = 0.0f;
-    const float frame_duration = 0.1f;
 
     sf::Clock cooldownClock;
-    sf::Time cooldownTime = sf::seconds(0.3f);
-
     sf::Clock hitClock;
-    const sf::Time hitFlashDuration = sf::milliseconds(100);
     bool isHit = false;
 
     std::vector<Projectile> projectiles;

@@ -5,6 +5,11 @@
 #include <vector>
 #include <optional>
 #include <cmath>
+#include "ConfigManager.hpp"
+#include "Utils.hpp" // Incluir Utils para acesso a checkCollision, calculateAngle e M_PI
+
+// *** REMOVIDO: O bloco namespace Constants::PI_F foi removido para evitar redefinição.
+// A constante M_PI já está disponível via Utils.hpp.
 
 // Estrutura para os projéteis do inimigo
 struct EnemyProjectile {
@@ -25,25 +30,26 @@ public:
 
     virtual void update(float deltaTime, sf::Vector2f playerPosition, const sf::FloatRect& gameBounds) = 0;
     virtual void draw(sf::RenderWindow& window);
-    
+
 protected:
+    EnemyBase();
+
     std::optional<sf::Sprite> sprite;
     int health = 1;
     float speed = 0.f;
 
     sf::Texture* projectileTexture = nullptr;
     sf::IntRect projectileTextureRect;
-    const float enemyHitSpeed = 700.f;
-    const float maxHitDistance = 800.f;
+
+    float enemyHitSpeed = 0.f;
+    float maxHitDistance = 0.f;
 
     std::vector<EnemyProjectile> projectiles;
 
-    // --- VARIÁVEIS DE HIT FLASH (Vermelho) ---
     sf::Clock hitClock;
-    const sf::Time hitFlashDuration = sf::milliseconds(100);
+    sf::Time hitFlashDuration;
     bool isHit = false;
 
-    // --- VARIÁVEIS DE HEAL FLASH (Verde) ---
     sf::Clock healFlashClock;
     const sf::Time healFlashDuration = sf::seconds(2.0f);
     bool isHealed = false;
@@ -77,16 +83,16 @@ private:
     std::vector<sf::Texture>* last_animation_set = nullptr;
     int current_frame = 0;
     float animation_time = 0.0f;
-    const float frame_duration = 0.12f;
+
+    float frame_duration = 0.f;
 
     sf::Clock cooldownClock;
-    sf::Time cooldownTime = sf::seconds(2.0f);
+    sf::Time cooldownTime;
     sf::Clock attackDelayClock;
-    sf::Time attackDelayTime = sf::seconds(0.5f);
+    sf::Time attackDelayTime;
     bool isPreparingAttack = false;
     sf::Vector2f targetPositionAtStartOfAttack;
 
-    // Função de movimento e animação que recebe o estado de ataque
     void handleMovementAndAnimation(float deltaTime, sf::Vector2f playerPosition, bool isAttacking);
     void handleAttack(sf::Vector2f playerPosition);
 };
@@ -105,18 +111,22 @@ private:
     std::vector<sf::Texture>* textures_idle = nullptr;
     int current_frame = 0;
     float animation_time = 0.0f;
-    const float frame_duration = 0.08f;
-    const int FRAME_B7_INDEX = 6;
+
+    float frame_duration = 0.f;
+    int FRAME_B7_INDEX = 0;
 
     sf::Clock healClock;
-    sf::Time healCooldown = sf::seconds(7.0f);
+    sf::Time healCooldown;
     bool canHealDemon = false;
     bool isChanting = false;
+
+    float center_pull_weight = 0.0f;
+    float lateral_bias_frequency = 0.0f;
+    float lateral_bias_strength = 0.0f;
 
     void handleAnimation(float deltaTime);
 };
 
-// Funções utilitárias
-float calculateAngle(sf::Vector2f p1, sf::Vector2f p2);
+// *** REMOVIDO: A declaração de calculateAngle foi removida, pois está em Utils.hpp.
 
 #endif // ENEMY_HPP

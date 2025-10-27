@@ -5,11 +5,11 @@
 #include <cmath>
 
 #ifndef M_PI
+// Define M_PI globalmente para todos que incluírem este header
 #define M_PI 3.14159265358979323846
 #endif
 
 // DECLARAÇÕES GLOBAIS
-// Estas são as únicas cópias globais.
-float calculateAngle(const sf::Vector2f& p1, const sf::Vector2f& p2);
+bool checkCollision(const sf::FloatRect& a, const sf::FloatRect& b);
 
 #endif // UTILS_HPP

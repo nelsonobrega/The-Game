@@ -1,0 +1,111 @@
+{
+  "player": {
+    "initial_health": 6,
+    "speed": 350.0,
+    "scale": 3.0,
+    "origin_x": 13.5,
+    "origin_y": 17.0,
+    "start_position_x": 960.0,
+    "start_position_y": 540.0,
+    "attack_cooldown": 0.5,
+    "projectile_speed": 650.0,
+    "projectile_max_distance": 900.0,
+    "projectile_scale": 1.5,
+    "projectile_origin_x": 7.5,
+    "projectile_origin_y": 12.0,
+    "hit_flash_duration": 0.1,
+    "animation": {
+      "frame_duration": 0.1,
+      "frames_vertical": 9,
+      "frames_horizontal": 6
+    }
+  },  
+  "demon": {
+    "initial_health": 13,
+    "max_health": 30,
+    "speed": 150.0,
+    "scale": 3.0,
+    "origin_x": 14.0,
+    "origin_y": 16.0,
+    "start_position_x": 960.0,
+    "start_position_y": 540.0,
+    "fire_cooldown": 2.0,
+    "attack_delay": 0.5,
+    "projectile_count": 3,
+    "projectile_spread": 20.0,
+    "projectile_speed": 700.0,
+    "projectile_scale": 2.0,
+    "projectile_max_distance": 600.0,
+    "frame_duration": 0.12,
+    "animation_frames": 8
+  },
+  "bishop": {
+    "initial_health": 20,
+    "speed": 310.0,
+    "scale": 3.0,
+    "origin_x": 14.0,
+    "origin_y": 16.0,
+    "start_position_x": 1500.0,
+    "start_position_y": 540.0,
+    "heal_cooldown": 7.0,
+    "heal_amount": 3,
+    "center_pull_weight": 0.1,
+    "lateral_bias_frequency": 1.5,
+    "lateral_bias_strength": 0.5,
+    "frame_duration": 0.08,
+    "animation_frames": 14,
+    "heal_trigger_frame": 6
+  },
+  "game": {
+    "window_width": 1920,
+    "window_height": 1080,
+    "window_title": "The Game - Isaac Clone",
+    "bounds": {
+      "left": 213.33,
+      "top": 179.80,
+      "width": 1493.34,
+      "height": 720.40
+    }
+  },
+  "ui": {
+    "max_hearts": 3,
+    "heart_spacing": 67.0,
+    "heart_scale": 3.0,
+    "heart_ui_x": 200.0,
+    "heart_ui_y": 90.0
+  },
+  "corners": {
+    "option_a": {
+      "x": 0,
+      "y": 0,
+      "width": 234,
+      "height": 156
+    },
+    "option_b": {
+      "x": 0,
+      "y": 156,
+      "width": 234,
+      "height": 155
+    },
+    "option_c": {
+      "x": 234,
+      "y": 0,
+      "width": 234,
+      "height": 155
+    }
+  },
+  "projectile_textures": {
+    "isaac_tear": {
+      "x": 8,
+      "y": 39,
+      "width": 16,
+      "height": 16
+    },
+    "demon_tear": {
+      "x": 8,
+      "y": 103,
+      "width": 16,
+      "height": 16
+    }
+  }
+}
