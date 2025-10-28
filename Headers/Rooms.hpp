@@ -90,6 +90,7 @@ private:
     RoomType type;
     sf::FloatRect gameBounds;
 
+
     std::vector<Door> doors;
 
     // Enemies (opcionais)

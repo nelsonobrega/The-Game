@@ -1,12 +1,27 @@
-#ifndef ROOMMANAGER_HPP
+Ôªø#ifndef ROOMMANAGER_HPP
 #define ROOMMANAGER_HPP
 
 #include "Rooms.hpp"
 #include "AssetManager.hpp"
 #include <vector>
 #include <map>
+#include <SFML/System/Vector2.hpp>
 
-// Estado da transiÁ„o entre salas
+// üö® CORRE√á√ÉO ROBUSTA: Comparador personalizado para sf::Vector2i
+// Isto resolve o erro do compilador for√ßando o uso de um m√©todo de compara√ß√£o.
+struct Vector2iComparator {
+    bool operator()(const sf::Vector2i& left, const sf::Vector2i& right) const {
+        // Compara o X
+        if (left.x != right.x) {
+            return left.x < right.x;
+        }
+        // Se X for igual, compara o Y
+        return left.y < right.y;
+    }
+};
+
+
+// Estado da transi√ß√£o entre salas
 enum class TransitionState {
     None,
     FadingOut,
@@ -22,7 +37,7 @@ public:
     // Gera o labirinto
     void generateDungeon(int numRooms);
 
-    // TransiÁ„o entre salas
+    // Transi√ß√£o entre salas
     void requestTransition(DoorDirection direction);
     void updateTransition(float deltaTime, sf::Vector2f& playerPosition);
     bool isTransitioning() const { return transitionState != TransitionState::None; }
@@ -36,7 +51,7 @@ public:
     Room* getCurrentRoom() { return currentRoom; }
     int getCurrentRoomID() const { return currentRoomID; }
 
-    // Verifica se player est· numa porta
+    // Verifica se player est√° numa porta
     DoorDirection checkPlayerAtDoor(const sf::FloatRect& playerBounds);
 
 private:
@@ -48,7 +63,10 @@ private:
     int currentRoomID;
     int nextRoomID;
 
-    // TransiÁ„o
+    // NOVO: Usa o comparador personalizado Vector2iComparator
+    std::map<sf::Vector2i, int, Vector2iComparator> coordToRoomID;
+
+    // Transi√ß√£o
     TransitionState transitionState;
     DoorDirection transitionDirection;
     float transitionProgress;
@@ -56,16 +74,15 @@ private:
 
     sf::RectangleShape transitionOverlay;
 
-    // GeraÁ„o do labirinto
+    // Gera√ß√£o do labirinto
     void createRoom(int id, RoomType type);
     void connectRooms(int roomA, int roomB, DoorDirection directionFromA);
-    std::vector<DoorDirection> getRandomDoors(bool isSafeZone);
     DoorDirection getOppositeDirection(DoorDirection direction);
 
     // Helper
     sf::Vector2f getTransitionOffset(DoorDirection direction, float progress);
 
-    std::mt19937 rng; // Motor de geraÁ„o
+    std::mt19937 rng; // Motor de gera√ß√£o
     std::random_device rd; // Seed para inicializar o motor
 };
 

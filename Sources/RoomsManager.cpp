@@ -7,6 +7,8 @@
 #include <ctime>
 #include <random> 
 #include <map>
+#include <SFML/System/Vector2.hpp> 
+
 
 // Construtor
 RoomManager::RoomManager(AssetManager& assetManager, const sf::FloatRect& gameBounds)
@@ -29,7 +31,7 @@ RoomManager::RoomManager(AssetManager& assetManager, const sf::FloatRect& gameBo
     transitionOverlay.setFillColor(sf::Color(0, 0, 0, 0));
 }
 
-// Helper para logs (CORRIGIDO: Função local estática para evitar erro de 'não definido')
+// Helper para logs
 static std::string dirToString(DoorDirection direction) {
     switch (direction) {
     case DoorDirection::North: return "North";
@@ -40,85 +42,123 @@ static std::string dirToString(DoorDirection direction) {
     }
 }
 
+// Retorna a próxima coordenada baseada na direção
+sf::Vector2i getNextCoord(const sf::Vector2i& current, DoorDirection direction) {
+    switch (direction) {
+    case DoorDirection::North: return { current.x, current.y - 1 };
+    case DoorDirection::South: return { current.x, current.y + 1 };
+    case DoorDirection::East: return { current.x + 1, current.y };
+    case DoorDirection::West: return { current.x - 1, current.y };
+    default: return current;
+    }
+}
+
 // Gera o labirinto
 void RoomManager::generateDungeon(int numRooms) {
-    std::cout << "\n Generating dungeon with " << numRooms << " rooms..." << std::endl;
+    std::cout << "\n Generating dungeon with " << numRooms << " rooms using Grid Coordinates..." << std::endl;
 
-    // Garante que o mapa está limpo antes de gerar
+    // Limpa estruturas
     rooms.clear();
+    coordToRoomID.clear();
 
     sf::Texture& doorTexture = assets.getTexture("Door");
+    int nextAvailableRoomID = 0;
 
-    // 1. Cria Salas
-    createRoom(0, RoomType::SafeZone);
-    for (int i = 1; i < numRooms; ++i) {
-        createRoom(i, RoomType::Combat);
-    }
+    // 1. Cria Sala 0 (Safe Zone)
+    createRoom(nextAvailableRoomID, RoomType::SafeZone);
+    coordToRoomID[{0, 0}] = nextAvailableRoomID;
+    nextAvailableRoomID++;
 
-    // Estrutura para rastrear as direções usadas em cada sala
-    std::map<int, std::vector<DoorDirection>> usedDirections;
-    for (int i = 0; i < numRooms; ++i) {
-        usedDirections[i] = {};
-    }
+    // Fila de salas existentes que podem ter novas conexões (coordenadas)
+    std::vector<sf::Vector2i> availableCoords;
+    availableCoords.push_back({ 0, 0 });
 
-    // 2. Conexões Principais (Cadeia linear)
-    for (int i = 0; i < numRooms - 1; ++i) {
-        Room& current = rooms.at(i);
-        Room& next = rooms.at(i + 1);
+    // 2. Criação da Cadeia Principal (DFS / Spanning Tree)
+    while (nextAvailableRoomID < numRooms && !availableCoords.empty()) {
 
-        std::vector<DoorDirection> availableDirs = { DoorDirection::North, DoorDirection::South, DoorDirection::East, DoorDirection::West };
+        // Escolhe uma sala existente de onde ramificar
+        std::uniform_int_distribution<> coordDist(0, availableCoords.size() - 1);
+        sf::Vector2i parentCoord = availableCoords[coordDist(rng)];
+        int parentID = coordToRoomID[parentCoord];
 
-        // Remove direções já usadas (garantido apenas para loops na secção 3, mas mantém a segurança)
-        for (const auto& dir : usedDirections[i]) {
-            availableDirs.erase(std::remove(availableDirs.begin(), availableDirs.end(), dir), availableDirs.end());
+        // Tenta ramificar em direções aleatórias
+        std::vector<DoorDirection> potentialDirections = { DoorDirection::North, DoorDirection::South, DoorDirection::East, DoorDirection::West };
+        std::shuffle(potentialDirections.begin(), potentialDirections.end(), rng);
+
+        bool roomAdded = false;
+
+        for (DoorDirection dir : potentialDirections) {
+            sf::Vector2i nextCoord = getNextCoord(parentCoord, dir);
+
+            // Verifica se a coordenada está livre e se ainda temos IDs para usar
+            if (coordToRoomID.find(nextCoord) == coordToRoomID.end() && nextAvailableRoomID < numRooms) {
+
+                int newRoomID = nextAvailableRoomID;
+
+                // Cria a nova sala
+                createRoom(newRoomID, RoomType::Combat);
+                coordToRoomID[nextCoord] = newRoomID;
+
+                // Conecta as duas salas
+                DoorDirection oppositeDir = getOppositeDirection(dir);
+                rooms.at(parentID).addDoor(dir, doorTexture);
+                rooms.at(newRoomID).addDoor(oppositeDir, doorTexture);
+                connectRooms(parentID, newRoomID, dir);
+
+                // Adiciona nova sala ao pool de ramificação
+                availableCoords.push_back(nextCoord);
+
+                std::cout << "   Room " << parentID << " at (" << parentCoord.x << "," << parentCoord.y
+                    << ") [" << dirToString(dir) << "] → Room " << newRoomID
+                    << " at (" << nextCoord.x << "," << nextCoord.y << ")" << std::endl;
+
+                roomAdded = true;
+                nextAvailableRoomID++;
+                break; // Adicionou 1, avança para a próxima iteração
+            }
         }
 
-        std::shuffle(availableDirs.begin(), availableDirs.end(), rng);
-        DoorDirection connectionDir = availableDirs[0];
-        DoorDirection oppositeDir = getOppositeDirection(connectionDir);
-
-        // Adiciona e conecta
-        current.addDoor(connectionDir, doorTexture);
-        next.addDoor(oppositeDir, doorTexture);
-        connectRooms(i, i + 1, connectionDir);
-
-        usedDirections[i].push_back(connectionDir);
-        usedDirections[i + 1].push_back(oppositeDir);
-
-        std::cout << "   Room " << i << " [" << dirToString(connectionDir) << "] → Room " << (i + 1) << std::endl;
+        // Se a sala não puder mais ramificar, remove-a do pool (exceto a Safe Zone)
+        if (!roomAdded && parentID != 0) {
+            availableCoords.erase(std::remove(availableCoords.begin(), availableCoords.end(), parentCoord), availableCoords.end());
+        }
     }
 
-    // 3. Conexões Extras (Loops para trás)
-    for (int i = 0; i < numRooms - 1; ++i) {
-        Room& current = rooms.at(i);
+
+    // 3. Adiciona Conexões Extras (Loops para evitar dead-ends no grid e dar variedade)
+    for (int i = 0; i < nextAvailableRoomID; ++i) {
+        Room& currentRoom = rooms.at(i);
+
+        // Define a probabilidade de tentar adicionar portas extras
+        int doorsToAdd = 0;
 
         // Lógica de probabilidade elevada para a Sala 0
-        int doorsToAdd = 0;
-        int baseChance2 = (i == 0) ? 90 : 50;
-        int baseChance3 = (i == 0) ? 70 : 30;
-        int baseChance4 = (i == 0) ? 50 : 10;
+        bool isSafeZone = (i == 0);
 
-        // Decide quantas portas extra TENTAR adicionar
-        if (rand() % 100 < baseChance2) doorsToAdd++; // 2+ portas
-        if (rand() % 100 < baseChance3) doorsToAdd++; // 3+ portas
-        if (rand() % 100 < baseChance4) doorsToAdd++; // 4 portas
+        // --- PROBABILIDADES AUMENTADAS ---
+        // Chance para tentar adicionar a porta extra N (além da garantida)
+        int baseChance2 = isSafeZone ? 100 : 70; // Aumentado de 90/50
+        int baseChance3 = isSafeZone ? 90 : 50;  // Aumentado de 70/30
+        int baseChance4 = isSafeZone ? 70 : 30;  // Aumentado de 50/10
+        int baseChance5 = isSafeZone ? 50 : 15;  // NOVO
+        int baseChance6 = isSafeZone ? 20 : 5;   // NOVO
 
-        // Calcula quantas portas extra são necessárias
-        int currentConnectedDoors = current.getDoors().size();
-        int doorsNeeded = doorsToAdd; // Quantas portas extra queremos que a sala tenha (além da conexão principal)
 
-        // Itera para tentar adicionar as portas extras (loops para salas anteriores)
-        for (int j = 0; j < doorsNeeded; ++j) {
+        // Decide quantas portas extra TENTAR adicionar (máximo 5 tentativas)
+        if (rand() % 100 < baseChance2) doorsToAdd++;
+        if (rand() % 100 < baseChance3) doorsToAdd++;
+        if (rand() % 100 < baseChance4) doorsToAdd++;
+        if (rand() % 100 < baseChance5) doorsToAdd++; // NOVO
+        if (rand() % 100 < baseChance6) doorsToAdd++; // NOVO
 
-            // Re-checa se o número de portas já é suficiente após o último loop
-            if (current.getDoors().size() >= 4) break;
+        // Itera para tentar adicionar as portas extras
+        for (int j = 0; j < doorsToAdd; ++j) {
 
-            std::vector<DoorDirection> availableDirs = {
-                DoorDirection::North, DoorDirection::South, DoorDirection::East, DoorDirection::West
-            };
+            if (currentRoom.getDoors().size() >= 4) break;
 
-            // Remove as direções já usadas
-            for (const auto& door : current.getDoors()) {
+            // Pega as direções disponíveis na sala atual
+            std::vector<DoorDirection> availableDirs = { DoorDirection::North, DoorDirection::South, DoorDirection::East, DoorDirection::West };
+            for (const auto& door : currentRoom.getDoors()) {
                 availableDirs.erase(std::remove(availableDirs.begin(), availableDirs.end(), door.direction), availableDirs.end());
             }
 
@@ -127,26 +167,47 @@ void RoomManager::generateDungeon(int numRooms) {
             std::shuffle(availableDirs.begin(), availableDirs.end(), rng);
             DoorDirection extraDir = availableDirs[0];
 
-            // Tenta conectar à sala anterior (i - 1)
-            if (i > 0) {
-                int targetRoomID = i - 1;
-                DoorDirection neededDir = getOppositeDirection(extraDir);
-                Room& targetRoom = rooms.at(targetRoomID);
+            // Encontra a coordenada da sala atual
+            sf::Vector2i currentCoord = { 0, 0 };
+            bool found = false;
 
-                // Só cria a porta se a sala anterior tiver a direção oposta livre
-                if (!targetRoom.hasDoor(neededDir)) {
-                    // Adiciona porta em 'current'
-                    current.addDoor(extraDir, doorTexture);
-                    // Adiciona porta em 'targetRoom'
-                    targetRoom.addDoor(neededDir, doorTexture);
-
-                    // Conecta as duas
-                    connectRooms(targetRoomID, i, neededDir); // Conecta Target -> Current
-                    connectRooms(i, targetRoomID, extraDir); // Conecta Current -> Target
-
-                    std::cout << "   Room " << i << " [" << dirToString(extraDir) << "] ↔ Loop to Room " << targetRoomID << std::endl;
+            for (const auto& pair : coordToRoomID) {
+                if (pair.second == i) {
+                    currentCoord = pair.first;
+                    found = true;
+                    break;
                 }
-                // Se não deu para conectar (direção oposta ocupada), simplesmente ignora e não cria dead-end.
+            }
+            if (!found) continue;
+
+            sf::Vector2i neighborCoord = getNextCoord(currentCoord, extraDir);
+
+            // Verifica se a sala vizinha existe
+            if (coordToRoomID.count(neighborCoord)) {
+                int neighborID = coordToRoomID.at(neighborCoord);
+
+                // Evita loops que se ligam à própria sala
+                if (neighborID == i) continue;
+
+                // Verifica se a porta já existe na sala atual 
+                if (!currentRoom.hasDoor(extraDir)) {
+                    Room& neighborRoom = rooms.at(neighborID);
+                    DoorDirection oppositeDir = getOppositeDirection(extraDir);
+
+                    // Só conecta se a sala vizinha também tiver a direção oposta livre
+                    if (!neighborRoom.hasDoor(oppositeDir)) {
+
+                        // Adiciona portas a ambas as salas
+                        currentRoom.addDoor(extraDir, doorTexture);
+                        neighborRoom.addDoor(oppositeDir, doorTexture);
+
+                        // Conecta-as
+                        connectRooms(i, neighborID, extraDir);
+
+                        std::cout << "   Room " << i << " at (" << currentCoord.x << "," << currentCoord.y << ") [" << dirToString(extraDir)
+                            << "] ↔ Loop to Room " << neighborID << " at (" << neighborCoord.x << "," << neighborCoord.y << ")" << std::endl;
+                    }
+                }
             }
         }
     }
@@ -158,7 +219,7 @@ void RoomManager::generateDungeon(int numRooms) {
 
     currentRoom->openDoors();
 
-    std::cout << " Dungeon generated! Starting in Safe Zone (Room 0)\n" << std::endl;
+    std::cout << "\n Dungeon generated! Starting in Safe Zone (Room 0) at (0,0)\n" << std::endl;
 }
 
 // Cria uma sala
