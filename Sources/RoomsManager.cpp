@@ -5,10 +5,10 @@
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
-#include <random> // Necessário para std::mt19937 e std::shuffle
+#include <random> 
+#include <map>
 
 // Construtor
-// NOTA: 'rng(rd())' inicializa o motor de aleatoriedade usando a 'seed' do sistema.
 RoomManager::RoomManager(AssetManager& assetManager, const sf::FloatRect& gameBounds)
     : assets(assetManager)
     , gameBounds(gameBounds)
@@ -18,97 +18,145 @@ RoomManager::RoomManager(AssetManager& assetManager, const sf::FloatRect& gameBo
     , transitionState(TransitionState::None)
     , transitionDirection(DoorDirection::None)
     , transitionProgress(0.f)
+    , transitionDuration(0.5f)
     // Inicialização do RNG
     , rng(rd())
 {
-    // Boa prática: Inicializa a seed do rand() antigo, caso seja usado noutros locais.
     std::srand(std::time(nullptr));
 
     // Setup do overlay de transição (tela preta)
     transitionOverlay.setSize({ 1920.f, 1080.f });
-    transitionOverlay.setFillColor(sf::Color(0, 0, 0, 0));  // Transparente no início
+    transitionOverlay.setFillColor(sf::Color(0, 0, 0, 0));
+}
+
+// Helper para logs (CORRIGIDO: Função local estática para evitar erro de 'não definido')
+static std::string dirToString(DoorDirection direction) {
+    switch (direction) {
+    case DoorDirection::North: return "North";
+    case DoorDirection::South: return "South";
+    case DoorDirection::East: return "East";
+    case DoorDirection::West: return "West";
+    default: return "None";
+    }
 }
 
 // Gera o labirinto
 void RoomManager::generateDungeon(int numRooms) {
     std::cout << "\n Generating dungeon with " << numRooms << " rooms..." << std::endl;
 
-    // Carrega textura das portas
+    // Garante que o mapa está limpo antes de gerar
+    rooms.clear();
+
     sf::Texture& doorTexture = assets.getTexture("Door");
 
-    // Sala 0: Safe Zone (sempre a primeira)
+    // 1. Cria Salas
     createRoom(0, RoomType::SafeZone);
-
-    // Cria salas de combate
     for (int i = 1; i < numRooms; ++i) {
         createRoom(i, RoomType::Combat);
     }
 
-    // Conecta as salas em cadeia (labirito simples)
-    for (int i = 0; i < numRooms - 1; ++i) {
-        Room& currentRoom = rooms.at(i);
-        Room& nextRoom = rooms.at(i + 1);
-
-        // Direções aleatórias para variedade
-        std::vector<DoorDirection> availableDirections = {
-            DoorDirection::North,
-            DoorDirection::South,
-            DoorDirection::East,
-            DoorDirection::West
-        };
-
-        // Embaralha (CORRIGIDO: usa std::shuffle e rng)
-        std::shuffle(availableDirections.begin(), availableDirections.end(), rng);
-
-        // Conecta usando a primeira direção disponível
-        DoorDirection connectionDir = availableDirections[0];
-        DoorDirection oppositeDir = getOppositeDirection(connectionDir);
-
-        // Adiciona portas
-        currentRoom.addDoor(connectionDir, doorTexture);
-        nextRoom.addDoor(oppositeDir, doorTexture);
-
-        // Conecta
-        connectRooms(i, i + 1, connectionDir);
-
-        std::cout << "   Room " << i << " ["
-            << (connectionDir == DoorDirection::North ? "North" :
-                connectionDir == DoorDirection::South ? "South" :
-                connectionDir == DoorDirection::East ? "East" : "West")
-            << "] → Room " << (i + 1) << std::endl;
+    // Estrutura para rastrear as direções usadas em cada sala
+    std::map<int, std::vector<DoorDirection>> usedDirections;
+    for (int i = 0; i < numRooms; ++i) {
+        usedDirections[i] = {};
     }
 
-    // Adiciona portas extras aleatórias (becos sem saída para complexidade)
-    for (auto& [id, room] : rooms) {
-        // 30% chance de ter uma porta extra que não leva a lugar nenhum
-        if (rand() % 100 < 30) {
-            std::vector<DoorDirection> possibleDirs = {
-                DoorDirection::North,
-                DoorDirection::South,
-                DoorDirection::East,
-                DoorDirection::West
+    // 2. Conexões Principais (Cadeia linear)
+    for (int i = 0; i < numRooms - 1; ++i) {
+        Room& current = rooms.at(i);
+        Room& next = rooms.at(i + 1);
+
+        std::vector<DoorDirection> availableDirs = { DoorDirection::North, DoorDirection::South, DoorDirection::East, DoorDirection::West };
+
+        // Remove direções já usadas (garantido apenas para loops na secção 3, mas mantém a segurança)
+        for (const auto& dir : usedDirections[i]) {
+            availableDirs.erase(std::remove(availableDirs.begin(), availableDirs.end(), dir), availableDirs.end());
+        }
+
+        std::shuffle(availableDirs.begin(), availableDirs.end(), rng);
+        DoorDirection connectionDir = availableDirs[0];
+        DoorDirection oppositeDir = getOppositeDirection(connectionDir);
+
+        // Adiciona e conecta
+        current.addDoor(connectionDir, doorTexture);
+        next.addDoor(oppositeDir, doorTexture);
+        connectRooms(i, i + 1, connectionDir);
+
+        usedDirections[i].push_back(connectionDir);
+        usedDirections[i + 1].push_back(oppositeDir);
+
+        std::cout << "   Room " << i << " [" << dirToString(connectionDir) << "] → Room " << (i + 1) << std::endl;
+    }
+
+    // 3. Conexões Extras (Loops para trás)
+    for (int i = 0; i < numRooms - 1; ++i) {
+        Room& current = rooms.at(i);
+
+        // Lógica de probabilidade elevada para a Sala 0
+        int doorsToAdd = 0;
+        int baseChance2 = (i == 0) ? 90 : 50;
+        int baseChance3 = (i == 0) ? 70 : 30;
+        int baseChance4 = (i == 0) ? 50 : 10;
+
+        // Decide quantas portas extra TENTAR adicionar
+        if (rand() % 100 < baseChance2) doorsToAdd++; // 2+ portas
+        if (rand() % 100 < baseChance3) doorsToAdd++; // 3+ portas
+        if (rand() % 100 < baseChance4) doorsToAdd++; // 4 portas
+
+        // Calcula quantas portas extra são necessárias
+        int currentConnectedDoors = current.getDoors().size();
+        int doorsNeeded = doorsToAdd; // Quantas portas extra queremos que a sala tenha (além da conexão principal)
+
+        // Itera para tentar adicionar as portas extras (loops para salas anteriores)
+        for (int j = 0; j < doorsNeeded; ++j) {
+
+            // Re-checa se o número de portas já é suficiente após o último loop
+            if (current.getDoors().size() >= 4) break;
+
+            std::vector<DoorDirection> availableDirs = {
+                DoorDirection::North, DoorDirection::South, DoorDirection::East, DoorDirection::West
             };
 
-            // Remove direções já usadas
-            for (const auto& door : room.getDoors()) {
-                possibleDirs.erase(
-                    std::remove(possibleDirs.begin(), possibleDirs.end(), door.direction),
-                    possibleDirs.end()
-                );
+            // Remove as direções já usadas
+            for (const auto& door : current.getDoors()) {
+                availableDirs.erase(std::remove(availableDirs.begin(), availableDirs.end(), door.direction), availableDirs.end());
             }
 
-            if (!possibleDirs.empty()) {
-                // Embaralha (CORRIGIDO: usa std::shuffle e rng)
-                std::shuffle(possibleDirs.begin(), possibleDirs.end(), rng);
-                room.addDoor(possibleDirs[0], doorTexture);
-                std::cout << "   Room " << id << " got a dead-end door" << std::endl;
+            if (availableDirs.empty()) break;
+
+            std::shuffle(availableDirs.begin(), availableDirs.end(), rng);
+            DoorDirection extraDir = availableDirs[0];
+
+            // Tenta conectar à sala anterior (i - 1)
+            if (i > 0) {
+                int targetRoomID = i - 1;
+                DoorDirection neededDir = getOppositeDirection(extraDir);
+                Room& targetRoom = rooms.at(targetRoomID);
+
+                // Só cria a porta se a sala anterior tiver a direção oposta livre
+                if (!targetRoom.hasDoor(neededDir)) {
+                    // Adiciona porta em 'current'
+                    current.addDoor(extraDir, doorTexture);
+                    // Adiciona porta em 'targetRoom'
+                    targetRoom.addDoor(neededDir, doorTexture);
+
+                    // Conecta as duas
+                    connectRooms(targetRoomID, i, neededDir); // Conecta Target -> Current
+                    connectRooms(i, targetRoomID, extraDir); // Conecta Current -> Target
+
+                    std::cout << "   Room " << i << " [" << dirToString(extraDir) << "] ↔ Loop to Room " << targetRoomID << std::endl;
+                }
+                // Se não deu para conectar (direção oposta ocupada), simplesmente ignora e não cria dead-end.
             }
         }
     }
 
+
     // Define sala inicial
     currentRoomID = 0;
     currentRoom = &rooms.at(currentRoomID);
+
+    currentRoom->openDoors();
 
     std::cout << " Dungeon generated! Starting in Safe Zone (Room 0)\n" << std::endl;
 }
@@ -116,18 +164,6 @@ void RoomManager::generateDungeon(int numRooms) {
 // Cria uma sala
 void RoomManager::createRoom(int id, RoomType type) {
     rooms.emplace(id, Room(id, type, gameBounds));
-
-    // Spawna inimigos se não for safe zone
-    if (type != RoomType::SafeZone) {
-        rooms.at(id).spawnEnemies(
-            assets.getAnimationSet("D_Down"),
-            assets.getAnimationSet("D_Up"),
-            assets.getAnimationSet("D_Left"),
-            assets.getAnimationSet("D_Right"),
-            assets.getTexture("TearAtlas"),
-            assets.getAnimationSet("Bishop")
-        );
-    }
 }
 
 // Conecta duas salas
@@ -149,15 +185,14 @@ DoorDirection RoomManager::getOppositeDirection(DoorDirection direction) {
     }
 }
 
+
 // Verifica se player está numa porta
 DoorDirection RoomManager::checkPlayerAtDoor(const sf::FloatRect& playerBounds) {
     if (!currentRoom || !currentRoom->isCleared()) {
-        return DoorDirection::None;  // Sala não está limpa, portas fechadas
+        return DoorDirection::None;
     }
 
-    // Usa checkCollision (assumindo que está em Utils.hpp)
     for (const auto& door : currentRoom->getDoors()) {
-        // NOTA: Acesso a door.bounds é seguro, pois é um sf::FloatRect
         if (door.isOpen && door.leadsToRoomID != -1 && checkCollision(playerBounds, door.bounds)) {
             return door.direction;
         }
@@ -168,21 +203,20 @@ DoorDirection RoomManager::checkPlayerAtDoor(const sf::FloatRect& playerBounds) 
 
 // Requisita transição para outra sala
 void RoomManager::requestTransition(DoorDirection direction) {
-    if (transitionState != TransitionState::None) return;  // Já em transição
+    if (transitionState != TransitionState::None) return;
 
     int targetRoomID = currentRoom->getDoorLeadsTo(direction);
     if (targetRoomID == -1) {
         std::cout << " Door leads nowhere (dead end)" << std::endl;
-        return;  // Porta não leva a lugar nenhum
+        return;
     }
+
+    currentRoom->closeDoors();
 
     nextRoomID = targetRoomID;
     transitionDirection = direction;
     transitionState = TransitionState::FadingOut;
     transitionProgress = 0.f;
-
-    // Fecha portas ao sair (se não for safe zone, pode ser ignorado se a sala já estiver limpa)
-    // currentRoom->closeDoors(); 
 
     std::cout << " Transitioning from Room " << currentRoomID
         << " to Room " << nextRoomID << std::endl;
@@ -192,55 +226,47 @@ void RoomManager::requestTransition(DoorDirection direction) {
 void RoomManager::updateTransition(float deltaTime, sf::Vector2f& playerPosition) {
     if (transitionState == TransitionState::None) return;
 
-    // Adiciona o delta time com clamp para 1.0f para evitar ultrapassar
     transitionProgress = std::min(1.f, transitionProgress + (deltaTime / transitionDuration));
 
     switch (transitionState) {
     case TransitionState::FadingOut: {
-        // Fade out (escurece a tela)
         int alpha = static_cast<int>(255 * transitionProgress);
         transitionOverlay.setFillColor(sf::Color(0, 0, 0, alpha));
 
         if (transitionProgress >= 1.f) {
-            transitionState = TransitionState::Moving;
-            transitionProgress = 0.f;
 
-            // --- MUDANÇA DE SALA ---
+            // --- 1. MUDANÇA DE SALA ---
             currentRoomID = nextRoomID;
             currentRoom = &rooms.at(currentRoomID);
 
-            // Se a nova sala não estiver limpa, feche as portas imediatamente
+            // --- 2. CONFIGURAÇÃO DA NOVA SALA E SPAWN DE INIMIGOS ---
             if (!currentRoom->isCleared()) {
                 currentRoom->closeDoors();
             }
 
-            // Reposiciona player do lado oposto, ligeiramente fora da porta
-            sf::Vector2f offset = getTransitionOffset(
-                getOppositeDirection(transitionDirection),
-                1.f // Movimento total de reposicionamento
+            currentRoom->spawnEnemies(
+                assets.getAnimationSet("D_Down"),
+                assets.getAnimationSet("D_Up"),
+                assets.getAnimationSet("D_Left"),
+                assets.getAnimationSet("D_Right"),
+                assets.getTexture("TearAtlas"),
+                assets.getAnimationSet("Bishop")
             );
-            playerPosition += offset;
-        }
-        break;
-    }
 
-    case TransitionState::Moving: {
-        // Este estado serve como um pequeno atraso/suavização no movimento do player.
-        // Para um efeito de "puxar para dentro da sala", pode comentar este bloco
-        // ou ajustar a lógica de reposicionamento para o FadingOut.
+            // --- 3. REPOSICIONAMENTO DO PLAYER (teletransporte) ---
+            DoorDirection spawnDoor = getOppositeDirection(transitionDirection);
+            playerPosition = currentRoom->getPlayerSpawnPosition(spawnDoor);
 
-        // O movimento suave foi substituído pela lógica de reposicionamento no FadingOut.
-        // Aqui, apenas avançamos o progresso para passar para o FadingIn.
-
-        if (transitionProgress >= 1.f) {
+            // --- 4. PRÓXIMO ESTADO ---
             transitionState = TransitionState::FadingIn;
             transitionProgress = 0.f;
+
+            transitionOverlay.setFillColor(sf::Color::Black);
         }
         break;
     }
 
     case TransitionState::FadingIn: {
-        // Fade in (clareia a tela)
         int alpha = static_cast<int>(255 * (1.f - transitionProgress));
         transitionOverlay.setFillColor(sf::Color(0, 0, 0, alpha));
 
@@ -258,22 +284,9 @@ void RoomManager::updateTransition(float deltaTime, sf::Vector2f& playerPosition
     }
 }
 
-// Calcula offset de movimento baseado na direção
+// Este método agora é redundante
 sf::Vector2f RoomManager::getTransitionOffset(DoorDirection direction, float progress) {
-    const float moveDistance = 100.f;  // Distância total de movimento/reposicionamento
-
-    switch (direction) {
-    case DoorDirection::North:
-        return { 0.f, -moveDistance * progress };
-    case DoorDirection::South:
-        return { 0.f, moveDistance * progress };
-    case DoorDirection::East:
-        return { moveDistance * progress, 0.f };
-    case DoorDirection::West:
-        return { -moveDistance * progress, 0.f };
-    default:
-        return { 0.f, 0.f };
-    }
+    return { 0.f, 0.f };
 }
 
 // Update

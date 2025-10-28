@@ -76,6 +76,11 @@ void Player_ALL::setProjectileTextureRect(const sf::IntRect& rect) {
 }
 
 void Player_ALL::takeDamage(int amount) {
+    // Implementação de iFrames: Ignora dano se isHit for verdadeiro
+    if (isHit) {
+        return;
+    }
+
     if (health > 0) {
         health = std::max(0, health - amount);
         isHit = true;
@@ -241,6 +246,10 @@ void Player_ALL::updateProjectiles(float deltaTime, const sf::FloatRect& gameBou
         it->distanceTraveled += isaacHitSpeed * deltaTime;
         sf::FloatRect projBounds = it->sprite.getGlobalBounds();
 
+        // NOTA: A remoção de projéteis deve ser feita APENAS após verificar
+        // colisões com inimigos (na lógica do Game::update) OU se o projétil
+        // atingir o limite de distância/fora da sala.
+
         if (it->distanceTraveled >= maxHitDistance || !checkCollision(projBounds, gameBounds))
             it = projectiles.erase(it);
         else
@@ -253,9 +262,11 @@ void Player_ALL::handleHitFlash(float deltaTime) {
 
     if (isHit) {
         if (hitClock.getElapsedTime() < hitFlashDuration) {
+            // O jogador está no período de invencibilidade
             Isaac->setColor(sf::Color::Red);
         }
         else {
+            // O período de invencibilidade termina aqui
             Isaac->setColor(sf::Color::White);
             isHit = false;
         }

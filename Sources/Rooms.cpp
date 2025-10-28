@@ -10,6 +10,7 @@ Room::Room(int id, RoomType type, const sf::FloatRect& gameBounds)
     : roomID(id)
     , type(type)
     , gameBounds(gameBounds)
+    // A Safe Zone (Room 0) está sempre limpa
     , cleared(type == RoomType::SafeZone)
     , doorsOpened(type == RoomType::SafeZone)
 {
@@ -20,13 +21,15 @@ void Room::addDoor(DoorDirection direction, sf::Texture& doorTexture) {
     Door door;
     door.direction = direction;
 
-    // 1. ✅ CORREÇÃO: Inicializa o std::optional<sf::Sprite> chamando o construtor
-    //    sf::Sprite(doorTexture). Isto resolve os erros de construtor padrão e std::construct_at.
+    // 1. Inicializa o std::optional<sf::Sprite>
     door.sprite.emplace(doorTexture);
 
     // 2. Acede ao sprite interno usando o operador ->
     door.sprite->setTextureRect(sf::IntRect({ 0, 0 }, { 48, 32 }));
-    door.sprite->setOrigin({ 24.f, 16.f });  // Centro da porta
+
+    // Origem: 24.f (Centro X) e 31.f (Base - 1px para ficar no limite)
+    door.sprite->setOrigin({ 24.f, 31.f });
+
     door.sprite->setScale({ 3.f, 3.f });
 
     door.isOpen = (type == RoomType::SafeZone);
@@ -61,15 +64,18 @@ sf::Vector2f Room::getDoorPosition(DoorDirection direction) const {
     float centerX = gameBounds.position.x + gameBounds.size.x / 2.f;
     float centerY = gameBounds.position.y + gameBounds.size.y / 2.f;
 
+    // AJUSTE FINAL: Offset de 5.f para portas nos limites
+    constexpr float doorOffset = 5.f;
+
     switch (direction) {
     case DoorDirection::North:
-        return { centerX, gameBounds.position.y + 50.f };  // Top
+        return { centerX, gameBounds.position.y + doorOffset };  // Top
     case DoorDirection::South:
-        return { centerX, gameBounds.position.y + gameBounds.size.y - 50.f };  // Bottom
+        return { centerX, gameBounds.position.y + gameBounds.size.y - doorOffset };  // Bottom
     case DoorDirection::East:
-        return { gameBounds.position.x + gameBounds.size.x - 50.f, centerY };  // Right
+        return { gameBounds.position.x + gameBounds.size.x - doorOffset, centerY };  // Right
     case DoorDirection::West:
-        return { gameBounds.position.x + 50.f, centerY };  // Left
+        return { gameBounds.position.x + doorOffset, centerY };  // Left
     default:
         return { centerX, centerY };
     }
@@ -100,8 +106,18 @@ void Room::spawnEnemies(
     sf::Texture& demonProjectileTexture,
     std::vector<sf::Texture>& bishopTextures)
 {
-    // Safe zone não tem inimigos
+    // Se for Safe Zone, retorna imediatamente (Nunca tem inimigos)
     if (type == RoomType::SafeZone) {
+        return;
+    }
+
+    // Não spawna inimigos se a sala já foi limpa.
+    if (cleared) {
+        return;
+    }
+
+    // Verifica se já existem inimigos (proteção contra chamadas duplas antes de limpar)
+    if (demon.has_value() || bishop.has_value()) {
         return;
     }
 
@@ -184,6 +200,7 @@ void Room::draw(sf::RenderWindow& window) {
 void Room::checkIfCleared() {
     if (cleared) return;  // Já limpa
 
+    // Um inimigo não existe (!demon) ou está morto (getHealth() <= 0)
     bool demonDead = !demon || demon->getHealth() <= 0;
     bool bishopDead = !bishop || bishop->getHealth() <= 0;
 
@@ -231,4 +248,23 @@ int Room::getDoorLeadsTo(DoorDirection direction) const {
         }
     }
     return -1;
+}
+
+// Retorna a posição ideal de SPAN DO JOGADOR perto de uma porta.
+sf::Vector2f Room::getPlayerSpawnPosition(DoorDirection doorDirection) const {
+    sf::Vector2f pos = getDoorPosition(doorDirection);
+    float offset = 60.f; // Afasta 30 pixels da porta
+
+    switch (doorDirection) {
+        case DoorDirection::North:
+            return { pos.x, pos.y + offset }; // Aparece abaixo da porta
+        case DoorDirection::South:
+            return { pos.x, pos.y - offset }; // Aparece acima da porta
+        case DoorDirection::East:
+            return { pos.x - offset, pos.y }; // Aparece à esquerda da porta
+        case DoorDirection::West:
+            return { pos.x + offset, pos.y }; // Aparece à direita da porta
+        default:
+            return { gameBounds.position.x + gameBounds.size.x / 2.f, gameBounds.position.y + gameBounds.size.y / 2.f }; // Centro
+        }
 }

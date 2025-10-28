@@ -78,6 +78,7 @@ public:
     // Enemy access (para colisões externas)
     std::optional<Demon_ALL>& getDemon() { return demon; }
     std::optional<Bishop_ALL>& getBishop() { return bishop; }
+    sf::Vector2f getPlayerSpawnPosition(DoorDirection doorDirection) const;
 
     // Check room status
     void checkIfCleared();
