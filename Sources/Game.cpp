@@ -1,19 +1,19 @@
 #include "Game.hpp"
 #include "Utils.hpp"
-#include "ConfigManager.hpp" // Adicionado para carregar a configuração
+#include "ConfigManager.hpp" 
 #include <iostream>
-#include <cstdlib> 
-#include <ctime>   
+#include <cstdlib>
+#include <ctime>
+#include <algorithm> // Necessário para std::min
 
 // --- Definições de Texturas de Canto (3 Opções Aleatórias) ---
-// Estas constantes são locais e não causam redefinição.
 const sf::IntRect TEXTURE_OPTION_A = { {0, 0 }, { 234, 156 } };
 const sf::IntRect TEXTURE_OPTION_B = { {0, 156 }, {234, 155} };
 const sf::IntRect TEXTURE_OPTION_C = { {234, 0}, {234, 155} };
 
 // --- Definições dos Recortes de Projéteis (Valores Hardcoded) ---
 const sf::IntRect ISAAC_TEAR_RECT = { {8, 39}, {16, 16} };
-const sf::IntRect DEMON_TEAR_RECT = { {8, 103}, {16, 16} };
+// const sf::IntRect DEMON_TEAR_RECT = { {8, 103}, {16, 16} }; // Não é mais necessário aqui
 
 // --- Função Auxiliar para Aleatorizar a Textura ---
 sf::IntRect getRandomCornerTexture() {
@@ -40,6 +40,7 @@ void Game::loadGameAssets() {
 
     assets.loadAnimation("Bishop", "Bishop", "B", 14, ".png");
 
+    assets.loadTexture("Door", "Images/Background/Doors.png"); // NOVO: Textura da porta
     assets.loadTexture("HeartF", "Images/UI/Life/Full.png");
     assets.loadTexture("HeartH", "Images/UI/Life/Half.png");
     assets.loadTexture("HeartE", "Images/UI/Life/Empty.png");
@@ -54,13 +55,11 @@ Game::Game()
 {
     // PASSO CRÍTICO: CARREGAR A CONFIGURAÇÃO ANTES DE USÁ-LA
     try {
-        // ATENÇÃO: Verifique o caminho correto do seu ficheiro JSON
         ConfigManager::getInstance().loadConfig("config.json");
         std::cout << "Configuracao carregada com sucesso.\n";
     }
     catch (const std::exception& e) {
         std::cerr << "ERRO FATAL AO CARREGAR CONFIG: " << e.what() << "\n";
-        // Lança exceção para garantir que o programa pare se a config falhar
         throw;
     }
 
@@ -79,22 +78,11 @@ Game::Game()
 
     if (Isaac) {
         Isaac->setProjectileTextureRect(ISAAC_TEAR_RECT);
+        // Coloca o Isaac no centro do ecrã antes da transição (será movido depois)
+        Isaac->setPosition({ 1920.f / 2.f, 1080.f / 2.f });
     }
 
-    // --- CONFIGURAÇÃO DO DEMON ---
-    Enemy.emplace(
-        assets.getAnimationSet("D_Down"), assets.getAnimationSet("D_Up"),
-        assets.getAnimationSet("D_Left"), assets.getAnimationSet("D_Right"),
-        assets.getTexture("TearAtlas")
-    );
-
-    if (Enemy) {
-        Enemy->setProjectileTextureRect(DEMON_TEAR_RECT);
-        std::cout << "Demon inicializado com novo recorte de projetil.\n";
-    }
-
-    // --- CONFIGURAÇÃO DO BISHOP ---
-    eBishop.emplace(assets.getAnimationSet("Bishop"));
+    // REMOVIDO: Enemy.emplace() e eBishop.emplace()
 
     // Inicializa sprites opcionais para corações
     heartSpriteF.emplace(assets.getTexture("HeartF"));
@@ -103,13 +91,13 @@ Game::Game()
 
     setupMenu();
 
-    // Inicializar sprites opcionais com as texturas carregadas
+    // Inicializar sprites opcionais com as texturas carregadas (cantos)
     cornerTL.emplace(assets.getTexture("BasementCorner"));
     cornerTR.emplace(assets.getTexture("BasementCorner"));
     cornerBL.emplace(assets.getTexture("BasementCorner"));
     cornerBR.emplace(assets.getTexture("BasementCorner"));
 
-    // Setup basement corners (COM ALEATORIEDADE E 3 OPÇÕES)
+    // Setup basement corners
     float scaleX = 960.f / 234.f;
     float scaleY = 540.f / 156.f;
 
@@ -138,8 +126,13 @@ Game::Game()
     float top = 179.80f;
     float width = 1493.34f;
     float height = 720.40f;
-
     gameBounds = sf::FloatRect({ left, top }, { width, height });
+
+    // --- NOVO: CONFIGURAÇÃO DO ROOM MANAGER ---
+    roomManager.emplace(assets, gameBounds);
+
+    // Gera 5 salas (pode ser ajustado ou lido da config)
+    roomManager->generateDungeon(5);
 }
 
 void Game::setupMenu() {
@@ -207,33 +200,56 @@ void Game::processEvents() {
 }
 
 void Game::update(float deltaTime) {
-    if (Isaac) Isaac->update(deltaTime, gameBounds);
-    if (Enemy) Enemy->update(deltaTime, Isaac->getPosition(), gameBounds);
-    if (eBishop) eBishop->update(deltaTime, Isaac->getPosition(), gameBounds);
+    if (!Isaac || !roomManager) return;
 
-    if (eBishop && eBishop->shouldHealDemon()) {
-        if (Enemy && Enemy->getHealth() > 0) {
-            Enemy->heal(3);
-            eBishop->resetHealFlag();
-        }
+    sf::Vector2f playerPosition = Isaac->getPosition();
+
+    // 1. Lógica de Transição (TEM PRIORIDADE)
+    if (roomManager->isTransitioning()) {
+        roomManager->updateTransition(deltaTime, playerPosition);
+        Isaac->setPosition(playerPosition); // Atualiza Isaac com o movimento da transição
+        Isaac->setSpeedMultiplier(0.f); // Pára o player durante o fade
+        return;
+    }
+    Isaac->setSpeedMultiplier(1.f); // Restaura velocidade
+
+    // 2. Atualização do Player (Movimento, Tiro)
+    Isaac->update(deltaTime, gameBounds);
+
+    // 3. Atualização da Sala (Inimigos, Cura, Checagem de Limpeza)
+    roomManager->update(deltaTime, Isaac->getPosition());
+
+    // 4. Checagem de Porta
+    DoorDirection doorHit = roomManager->checkPlayerAtDoor(Isaac->getGlobalBounds());
+    if (doorHit != DoorDirection::None) {
+        roomManager->requestTransition(doorHit);
+        return; // Pula o resto da lógica (colisão) para iniciar o fade
     }
 
-    if (Isaac) {
-        auto& isaacProjectiles = Isaac->getProjectiles();
+    // --- Lógica de Colisão de Projéteis ---
 
+    auto& isaacProjectiles = Isaac->getProjectiles();
+    Room* currentRoom = roomManager->getCurrentRoom();
+
+    if (currentRoom) {
+        // Obtém os inimigos da sala atual
+        auto demon = currentRoom->getDemon();
+        auto bishop = currentRoom->getBishop();
+
+        // Colisão: Projéteis do Isaac vs. Inimigos
         for (auto it = isaacProjectiles.begin(); it != isaacProjectiles.end();) {
             sf::FloatRect projBounds = it->sprite.getGlobalBounds();
             bool projectile_hit = false;
 
-            // 1. COLISÃO COM O DEMON (Enemy) - USANDO FUNÇÃO GLOBAL checkCollision (de Utils.hpp)
-            if (Enemy && Enemy->getHealth() > 0 && checkCollision(projBounds, Enemy->getGlobalBounds())) {
-                Enemy->takeDamage(1);
+            // 1. COLISÃO COM O DEMON
+            if (demon && demon->getHealth() > 0 && checkCollision(projBounds, demon->getGlobalBounds())) {
+                demon->takeDamage(1);
                 projectile_hit = true;
             }
 
-            // 2. COLISÃO COM O BISHOP (eBishop) - USANDO FUNÇÃO GLOBAL checkCollision (de Utils.hpp)
-            if (eBishop && eBishop->getHealth() > 0 && checkCollision(projBounds, eBishop->getGlobalBounds())) {
-                eBishop->takeDamage(1);
+            // 2. COLISÃO COM O BISHOP
+            if (bishop && bishop->getHealth() > 0 && checkCollision(projBounds, bishop->getGlobalBounds())) {
+                bishop->takeDamage(1);
                 projectile_hit = true;
             }
 
@@ -244,28 +260,25 @@ void Game::update(float deltaTime) {
                 ++it;
             }
         }
-    }
 
-    // Colisão dos projéteis inimigos (Demon) com o Player
-    if (Isaac && Enemy) {
-        auto& enemyProjectiles = Enemy->getProjectiles();
-        for (auto it = enemyProjectiles.begin(); it != enemyProjectiles.end();) {
-            sf::FloatRect projBounds = it->sprite.getGlobalBounds();
-            // USANDO FUNÇÃO GLOBAL checkCollision (de Utils.hpp)
-            if (Isaac->getHealth() > 0 && checkCollision(projBounds, Isaac->getGlobalBounds())) {
-                Isaac->takeDamage(1);
-                it = enemyProjectiles.erase(it);
-            }
-            else {
-                ++it;
+        // Colisão: Projéteis Inimigos (Demon) vs. Player
+        if (demon && demon->getHealth() > 0) {
+            auto& enemyProjectiles = demon->getProjectiles();
+            for (auto it = enemyProjectiles.begin(); it != enemyProjectiles.end();) {
+                sf::FloatRect projBounds = it->sprite.getGlobalBounds();
+
+                if (Isaac->getHealth() > 0 && checkCollision(projBounds, Isaac->getGlobalBounds())) {
+                    Isaac->takeDamage(1);
+                    it = enemyProjectiles.erase(it);
+                }
+                else {
+                    ++it;
+                }
             }
         }
     }
 
-    if ((Enemy && Enemy->getHealth() <= 0) && (eBishop && eBishop->getHealth() <= 0)) {
-        // Lógica de fim de jogo/sala
-    }
-
+    // Lógica de morte do Isaac
     if (Isaac && Isaac->getHealth() <= 0) {
         window.close();
     }
@@ -274,13 +287,21 @@ void Game::update(float deltaTime) {
 void Game::render() {
     window.clear();
 
-    // Desenho dos Cantos da Sala
+    // Desenho dos Cantos da Sala (Background)
     if (cornerTL) window.draw(*cornerTL);
     if (cornerTR) window.draw(*cornerTR);
     if (cornerBL) window.draw(*cornerBL);
     if (cornerBR) window.draw(*cornerBR);
 
+    // --- Desenho da Sala ---
+    if (roomManager) {
+        roomManager->draw(window);
+    }
 
+    // O Player deve ser desenhado sempre acima dos inimigos
+    if (Isaac) Isaac->draw(window);
+
+    // --- Desenho da UI (Saúde) ---
     if (!Isaac) return;
 
     int currentHealth = Isaac->getHealth();
@@ -291,6 +312,7 @@ void Game::render() {
 
     if (!heartSpriteF || !heartSpriteH || !heartSpriteE) return;
 
+    // Garante que a escala é definida
     heartSpriteF->setScale({ 3.f, 3.f });
     heartSpriteH->setScale({ 3.f, 3.f });
     heartSpriteE->setScale({ 3.f, 3.f });
@@ -301,15 +323,17 @@ void Game::render() {
         else if (currentHealth == 1) spriteToDraw = &*heartSpriteH;
         else spriteToDraw = &*heartSpriteE;
 
+        // É necessário const_cast ou garantir que o objeto não é const para chamar setPosition
         const_cast<sf::Sprite*>(spriteToDraw)->setPosition({ xPosition, yPosition });
         window.draw(*spriteToDraw);
         xPosition += heartSpacing;
         currentHealth -= 2;
     }
 
-    if (Enemy) Enemy->draw(window);
-    Isaac->draw(window);
-    if (eBishop) eBishop->draw(window);
+    // --- Desenho do Overlay de Transição (DEVE SER O ÚLTIMO) ---
+    if (roomManager) {
+        roomManager->drawTransitionOverlay(window);
+    }
 
     window.display();
 }

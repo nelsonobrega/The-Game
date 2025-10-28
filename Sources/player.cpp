@@ -5,7 +5,9 @@
 #include <iostream>
 #include <cmath>
 
-// --- FUNÇÃO DE COLISÃO MANUAL LOCAL ---
+// --- FUNÇÃO DE COLISÃO MANUAL LOCAL (ASSUME-SE QUE É checkCollision) ---
+// NOTA: Se esta função existe em Utils.hpp, é melhor removê-la daqui
+// para evitar redefinição, mas mantive-a para contexto.
 static bool checkCollision(const sf::FloatRect& rect1, const sf::FloatRect& rect2) {
     bool x_overlap = rect1.position.x < rect2.position.x + rect2.size.x &&
         rect1.position.x + rect1.size.x > rect2.position.x;
@@ -16,13 +18,30 @@ static bool checkCollision(const sf::FloatRect& rect1, const sf::FloatRect& rect
     return x_overlap && y_overlap;
 }
 
-// --- CONSTRUTOR ATUALIZADO (Carrega Configs - Removendo as falhas) ---
+// --- IMPLEMENTAÇÃO DOS NOVOS MÉTODOS ---
+
+// Define a nova posição do player
+void Player_ALL::setPosition(const sf::Vector2f& newPosition) {
+    if (Isaac) {
+        Isaac->setPosition(newPosition);
+    }
+}
+
+// Define um multiplicador para a velocidade de movimento (usado na transição de sala)
+void Player_ALL::setSpeedMultiplier(float multiplier) {
+    speedMultiplier_ = std::max(0.0f, multiplier); // Garante que nunca é negativo
+}
+
+// ----------------------------------------
+
+// --- CONSTRUTOR ATUALIZADO ---
 Player_ALL::Player_ALL(
     std::vector<sf::Texture>& walkDownTextures,
     sf::Texture& hitTextureRef,
     std::vector<sf::Texture>& walkUpTextures,
     std::vector<sf::Texture>& walkLeftTextures,
     std::vector<sf::Texture>& walkRightTextures)
+    : speedMultiplier_(1.0f) // Inicializa com velocidade normal
 {
     // CARREGA CONFIGURAÇÕES DO PLAYER
     const PlayerConfig& cfg = ConfigManager::getInstance().getConfig().player;
@@ -30,12 +49,8 @@ Player_ALL::Player_ALL(
     health = cfg.initial_health;
     speed = cfg.speed;
     isaacHitSpeed = cfg.projectile_speed;
-
     maxHitDistance = cfg.projectile_max_distance;
-
-    // hitFlashDuration é a única Time/Duration que a config fornece
     hitFlashDuration = sf::seconds(cfg.hit_flash_duration);
-
 
     textures_walk_down = &walkDownTextures;
     textures_walk_up = &walkUpTextures;
@@ -95,22 +110,22 @@ void Player_ALL::handleMovementAndAnimation(float deltaTime) {
     // --- Lógica de Animação Direcional (Setas) ---
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Up)) {
         current_animation_set = textures_walk_up;
-        current_total_frames = frames_vertical; // Usa frames_vertical (const)
+        current_total_frames = frames_vertical;
         is_moving = true;
     }
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Down)) {
         current_animation_set = textures_walk_down;
-        current_total_frames = frames_vertical; // Usa frames_vertical (const)
+        current_total_frames = frames_vertical;
         is_moving = true;
     }
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Left)) {
         current_animation_set = textures_walk_left;
-        current_total_frames = frames_horizontal; // Usa frames_horizontal (const)
+        current_total_frames = frames_horizontal;
         is_moving = true;
     }
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::Right)) {
         current_animation_set = textures_walk_right;
-        current_total_frames = frames_horizontal; // Usa frames_horizontal (const)
+        current_total_frames = frames_horizontal;
         is_moving = true;
     }
 
@@ -149,7 +164,13 @@ void Player_ALL::handleMovementAndAnimation(float deltaTime) {
     if (length > 1.0f) {
         move /= length;
     }
-    Isaac->move(move * deltaTime * speed);
+
+    // --- MOVIMENTO APLICADO COM O speedMultiplier_ ---
+    if (speedMultiplier_ > 0.f) {
+        float effectiveSpeed = speed * speedMultiplier_;
+        Isaac->move(move * deltaTime * effectiveSpeed);
+    }
+    // ---------------------------------------------------
 
     // Lógica de animação
     if (is_moving && current_animation_set) {
@@ -180,7 +201,6 @@ void Player_ALL::handleMovementAndAnimation(float deltaTime) {
 void Player_ALL::handleAttack() {
     if (!Isaac || !hitTexture) return;
 
-    // Usa cooldownTime (constante da classe)
     if (cooldownClock.getElapsedTime() >= cooldownTime) {
         struct KeyDir { sf::Keyboard::Scancode key; sf::Vector2f dir; float rot; };
         KeyDir dirs[4] = {
@@ -245,11 +265,23 @@ void Player_ALL::handleHitFlash(float deltaTime) {
 void Player_ALL::update(float deltaTime, const sf::FloatRect& gameBounds) {
     if (!Isaac || health <= 0) return;
 
-    handleMovementAndAnimation(deltaTime);
+    // Apenas move o player se não estiver parado (speedMultiplier_ > 0)
+    if (speedMultiplier_ > 0.f) {
+        handleMovementAndAnimation(deltaTime);
+    }
+    else {
+        // Mantém a animação estática quando parado
+        current_frame = 0;
+        animation_time = 0.0f;
+        if (last_animation_set && !last_animation_set->empty())
+            Isaac->setTexture(last_animation_set->at(0));
+    }
+
     handleAttack();
     handleHitFlash(deltaTime);
     updateProjectiles(deltaTime, gameBounds);
 
+    // Lógica de Colisão com as Bordas da Sala
     sf::Vector2f newPos = Isaac->getPosition();
     sf::FloatRect isaacBounds = Isaac->getGlobalBounds();
 
