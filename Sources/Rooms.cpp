@@ -65,11 +65,11 @@ sf::Vector2f Room::getDoorPosition(DoorDirection direction) const {
     float centerY = gameBounds.position.y + gameBounds.size.y / 2.f;
 
     // AJUSTE FINAL: Offset de 5.f para portas nos limites
-    constexpr float doorOffset = 5.f;
+    constexpr float doorOffset = 1.f;
 
     switch (direction) {
     case DoorDirection::North:
-        return { centerX, gameBounds.position.y + doorOffset };  // Top
+        return { centerX, gameBounds.position.y + doorOffset };  // Top 
     case DoorDirection::South:
         return { centerX, gameBounds.position.y + gameBounds.size.y - doorOffset };  // Bottom
     case DoorDirection::East:

@@ -332,6 +332,11 @@ void Game::render() {
         currentHealth -= 2;
     }
 
+    // --- Desenho do Minimapa ---
+    if (roomManager) {
+        roomManager->drawMiniMap(window);
+    }
+
     // --- Desenho do Overlay de Transição (DEVE SER O ÚLTIMO) ---
     if (roomManager) {
         roomManager->drawTransitionOverlay(window);

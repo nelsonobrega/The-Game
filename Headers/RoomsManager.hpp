@@ -5,6 +5,7 @@
 #include "AssetManager.hpp"
 #include <vector>
 #include <map>
+#include <set>
 #include <SFML/System/Vector2.hpp>
 
 // 🚨 CORREÇÃO ROBUSTA: Comparador personalizado para sf::Vector2i
@@ -54,6 +55,10 @@ public:
     // Verifica se player está numa porta
     DoorDirection checkPlayerAtDoor(const sf::FloatRect& playerBounds);
 
+    // NOVO: Métodos para o minimapa
+    void drawMiniMap(sf::RenderWindow& window);
+    sf::Vector2i getCurrentRoomCoord() const;
+
 private:
     AssetManager& assets;
     sf::FloatRect gameBounds;
@@ -65,6 +70,9 @@ private:
 
     // NOVO: Usa o comparador personalizado Vector2iComparator
     std::map<sf::Vector2i, int, Vector2iComparator> coordToRoomID;
+
+    // NOVO: Rastreamento de salas visitadas para o minimapa
+    std::set<int> visitedRooms;
 
     // Transição
     TransitionState transitionState;

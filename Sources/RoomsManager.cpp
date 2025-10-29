@@ -20,7 +20,7 @@ RoomManager::RoomManager(AssetManager& assetManager, const sf::FloatRect& gameBo
     , transitionState(TransitionState::None)
     , transitionDirection(DoorDirection::None)
     , transitionProgress(0.f)
-    , transitionDuration(0.5f)
+    , transitionDuration(0.49f)
     // Inicialização do RNG
     , rng(rd())
 {
@@ -368,5 +368,148 @@ void RoomManager::draw(sf::RenderWindow& window) {
 void RoomManager::drawTransitionOverlay(sf::RenderWindow& window) {
     if (transitionState != TransitionState::None) {
         window.draw(transitionOverlay);
+    }
+}
+// ============================================================
+// IMPLEMENTAÇÃO DO MINIMAPA
+// ============================================================
+
+// Retorna as coordenadas da sala atual
+sf::Vector2i RoomManager::getCurrentRoomCoord() const {
+    for (const auto& pair : coordToRoomID) {
+        if (pair.second == currentRoomID) {
+            return pair.first;
+        }
+    }
+    return { 0, 0 }; // Fallback para a sala inicial
+}
+
+// Desenha o minimapa no canto superior direito
+void RoomManager::drawMiniMap(sf::RenderWindow& window) {
+    // Configurações do minimapa
+    const float miniMapSize = 150.f;
+    const float roomSize = 15.f;
+    const float roomSpacing = 18.f; // Espaço entre salas (inclui tamanho + margem)
+    const float connectionThickness = 2.f;
+    
+    // Posição do minimapa (canto superior direito)
+    const sf::Vector2f miniMapPosition(window.getSize().x - miniMapSize - 20.f, 20.f);
+    
+    // Fundo semitransparente do minimapa
+    sf::RectangleShape background;
+    background.setSize({ miniMapSize, miniMapSize });
+    background.setPosition(miniMapPosition);
+    background.setFillColor(sf::Color(0, 0, 0, 100));
+    background.setOutlineColor(sf::Color(100, 100, 100, 200));
+    background.setOutlineThickness(2.f);
+    window.draw(background);
+    
+    // Adiciona a sala atual às salas visitadas
+    visitedRooms.insert(currentRoomID);
+    
+    // Obtém coordenadas da sala atual
+    sf::Vector2i currentCoord = getCurrentRoomCoord();
+    
+    // Centro do minimapa
+    sf::Vector2f miniMapCenter = miniMapPosition + sf::Vector2f(miniMapSize / 2.f, miniMapSize / 2.f);
+    
+    // Desenha apenas as salas visitadas e suas conexões
+    for (int visitedRoomID : visitedRooms) {
+        // Encontra as coordenadas desta sala visitada
+        sf::Vector2i roomCoord = { 0, 0 };
+        bool found = false;
+        
+        for (const auto& pair : coordToRoomID) {
+            if (pair.second == visitedRoomID) {
+                roomCoord = pair.first;
+                found = true;
+                break;
+            }
+        }
+        
+        if (!found) continue;
+        
+        // Calcula posição relativa à sala atual
+        sf::Vector2i relativeCoord = roomCoord - currentCoord;
+        
+        // Posição no minimapa (centralizada na sala atual)
+        sf::Vector2f roomPosition = miniMapCenter + sf::Vector2f(
+            relativeCoord.x * roomSpacing,
+            relativeCoord.y * roomSpacing
+        );
+        
+        // Verifica se a sala está dentro dos limites do minimapa
+        sf::FloatRect miniMapBounds({ miniMapPosition.x, miniMapPosition.y }, { miniMapSize, miniMapSize });
+        sf::FloatRect roomBounds({ roomPosition.x - roomSize / 2.f, roomPosition.y - roomSize / 2.f }, { roomSize, roomSize });
+        
+        if (!checkCollision(miniMapBounds, roomBounds)) {
+            continue; // Sala fora do minimapa visível
+        }
+        
+        // Desenha conexões (linhas) para salas adjacentes visitadas
+        Room& room = rooms.at(visitedRoomID);
+        for (const auto& door : room.getDoors()) {
+            int neighborID = door.leadsToRoomID;
+            
+            // Verifica se a sala vizinha foi visitada
+            if (neighborID != -1 && visitedRooms.count(neighborID) > 0) {
+                sf::Vector2i neighborCoord = { 0, 0 };
+                
+                for (const auto& pair : coordToRoomID) {
+                    if (pair.second == neighborID) {
+                        neighborCoord = pair.first;
+                        break;
+                    }
+                }
+                
+                sf::Vector2i relativeNeighbor = neighborCoord - currentCoord;
+                sf::Vector2f neighborPosition = miniMapCenter + sf::Vector2f(
+                    relativeNeighbor.x * roomSpacing,
+                    relativeNeighbor.y * roomSpacing
+                );
+                
+                // Desenha linha de conexão
+                sf::RectangleShape connection;
+                sf::Vector2f direction = neighborPosition - roomPosition;
+                float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
+                float angle = std::atan2(direction.y, direction.x) * 180.f / 3.14159265f;
+                
+                connection.setSize({ length, connectionThickness });
+                connection.setPosition(roomPosition);
+                connection.setOrigin({ 0.f, connectionThickness / 2.f });
+                connection.setRotation(sf::degrees(angle));
+                connection.setFillColor(sf::Color(80, 80, 80, 200));
+                
+                window.draw(connection);
+            }
+        }
+        
+        // Desenha a sala
+        sf::RectangleShape roomRect;
+        roomRect.setSize({ roomSize, roomSize });
+        roomRect.setOrigin({ roomSize / 2.f, roomSize / 2.f });
+        roomRect.setPosition(roomPosition);
+        
+        // Define a cor baseada no estado da sala
+        if (visitedRoomID == currentRoomID) {
+            // Sala atual - vermelho
+            roomRect.setFillColor(sf::Color(255, 0, 0, 255));
+            roomRect.setOutlineColor(sf::Color(255, 255, 255, 255));
+            roomRect.setOutlineThickness(1.5f);
+        }
+        else if (room.isCleared()) {
+            // Sala limpa - branco
+            roomRect.setFillColor(sf::Color(255, 255, 255, 255));
+            roomRect.setOutlineColor(sf::Color(200, 200, 200, 200));
+            roomRect.setOutlineThickness(1.f);
+        }
+        else {
+            // Sala visitada mas não limpa - cinzenta
+            roomRect.setFillColor(sf::Color(150, 150, 150, 255));
+            roomRect.setOutlineColor(sf::Color(200, 200, 200, 200));
+            roomRect.setOutlineThickness(1.f);
+        }
+        
+        window.draw(roomRect);
     }
 }
