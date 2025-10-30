@@ -58,7 +58,7 @@ private:
 
     // VARIÁVEIS RESTAURADAS COMO CONSTANTES
     const float frame_duration = 0.1f;
-    const sf::Time cooldownTime = sf::seconds(0.3f);
+    sf::Time cooldownTime;
     const int frames_vertical = 9;
     const int frames_horizontal = 6;
 

@@ -1,13 +1,13 @@
 {
   "player": {
-    "initial_health": 6,
+    "initial_health": 10,
     "speed": 350.0,
     "scale": 3.0,
     "origin_x": 13.5,
     "origin_y": 17.0,
     "start_position_x": 960.0,
     "start_position_y": 540.0,
-    "attack_cooldown": 0.01,
+    "attack_cooldown": 0.7,
     "projectile_speed": 650.0,
     "projectile_max_distance": 900.0,
     "projectile_scale": 1.5,
@@ -68,7 +68,7 @@
     }
   },
   "ui": {
-    "max_hearts": 3,
+    "max_hearts": 6,
     "heart_spacing": 67.0,
     "heart_scale": 3.0,
     "heart_ui_x": 200.0,

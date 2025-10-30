@@ -21,7 +21,6 @@ EnemyBase::EnemyBase() {
 }
 
 void EnemyBase::handleHealFlash() {
-    // ... (inalterado)
     if (!sprite) return;
 
     if (isHealed) {
@@ -36,7 +35,6 @@ void EnemyBase::handleHealFlash() {
 }
 
 void EnemyBase::takeDamage(int amount) {
-    // ... (inalterado)
     if (health > 0) {
         health = std::max(0, health - amount);
         isHit = true;
@@ -45,7 +43,6 @@ void EnemyBase::takeDamage(int amount) {
 }
 
 void EnemyBase::handleHitFlash() {
-    // ... (inalterado)
     if (!sprite) return;
 
     if (isHit) {
@@ -62,17 +59,14 @@ void EnemyBase::handleHitFlash() {
 }
 
 sf::FloatRect EnemyBase::getGlobalBounds() const {
-    // ... (inalterado)
     return sprite ? sprite->getGlobalBounds() : sf::FloatRect();
 }
 
 std::vector<EnemyProjectile>& EnemyBase::getProjectiles() {
-    // ... (inalterado)
     return projectiles;
 }
 
 void EnemyBase::updateProjectiles(float deltaTime, const sf::FloatRect& gameBounds) {
-    // ... (inalterado)
     for (auto it = projectiles.begin(); it != projectiles.end(); ) {
         it->sprite.move(it->direction * enemyHitSpeed * deltaTime);
         it->distanceTraveled += enemyHitSpeed * deltaTime;
@@ -94,7 +88,6 @@ void EnemyBase::updateProjectiles(float deltaTime, const sf::FloatRect& gameBoun
 }
 
 void EnemyBase::draw(sf::RenderWindow& window) {
-    // ... (inalterado)
     if (!sprite || health <= 0) return;
     for (auto& p : projectiles) window.draw(p.sprite);
     window.draw(*sprite);
@@ -155,7 +148,6 @@ void Demon_ALL::heal(int amount) {
 }
 
 void Demon_ALL::handleMovementAndAnimation(float deltaTime, sf::Vector2f playerPosition, bool isAttacking) {
-    // ... (inalterado)
     if (!sprite) return;
 
     const int current_total_frames = ConfigManager::getInstance().getConfig().demon.animation_frames;
@@ -263,7 +255,6 @@ void Demon_ALL::handleAttack(sf::Vector2f playerPosition) {
 }
 
 void Demon_ALL::update(float deltaTime, sf::Vector2f playerPosition, const sf::FloatRect& gameBounds) {
-    // ... (inalterado)
     if (health <= 0) return;
 
     handleMovementAndAnimation(deltaTime, playerPosition, isPreparingAttack);
@@ -313,7 +304,6 @@ Bishop_ALL::Bishop_ALL(std::vector<sf::Texture>& walkTextures)
 
 
 void Bishop_ALL::handleAnimation(float deltaTime) {
-    // ... (inalterado)
     if (!sprite) return;
 
     const int current_total_frames = ConfigManager::getInstance().getConfig().bishop.animation_frames;
@@ -365,7 +355,6 @@ void Bishop_ALL::resetHealFlag() {
 
 
 void Bishop_ALL::update(float deltaTime, sf::Vector2f playerPosition, const sf::FloatRect& gameBounds) {
-    // ... (inalterado)
     if (health <= 0) return;
 
     if (!sprite) return;

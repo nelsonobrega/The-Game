@@ -4,10 +4,9 @@
 #include <algorithm>
 #include <iostream>
 #include <cmath>
+#include <SFML/Graphics/RenderWindow.hpp>
 
-// --- FUNÇÃO DE COLISÃO MANUAL LOCAL (ASSUME-SE QUE É checkCollision) ---
-// NOTA: Se esta função existe em Utils.hpp, é melhor removê-la daqui
-// para evitar redefinição, mas mantive-a para contexto.
+// --- FUNÇÃO DE COLISÃO MANUAL LOCAL (Assumindo checkCollision) ---
 static bool checkCollision(const sf::FloatRect& rect1, const sf::FloatRect& rect2) {
     bool x_overlap = rect1.position.x < rect2.position.x + rect2.size.x &&
         rect1.position.x + rect1.size.x > rect2.position.x;
@@ -34,7 +33,7 @@ void Player_ALL::setSpeedMultiplier(float multiplier) {
 
 // ----------------------------------------
 
-// --- CONSTRUTOR ATUALIZADO ---
+// --- CONSTRUTOR CORRIGIDO: Adicionada a variável cooldownTime ---
 Player_ALL::Player_ALL(
     std::vector<sf::Texture>& walkDownTextures,
     sf::Texture& hitTextureRef,
@@ -51,6 +50,9 @@ Player_ALL::Player_ALL(
     isaacHitSpeed = cfg.projectile_speed;
     maxHitDistance = cfg.projectile_max_distance;
     hitFlashDuration = sf::seconds(cfg.hit_flash_duration);
+
+    // ? CORREÇÃO CRUCIAL: Carrega o cooldown do JSON para o membro da classe
+    cooldownTime = sf::seconds(cfg.attack_cooldown);
 
     textures_walk_down = &walkDownTextures;
     textures_walk_up = &walkUpTextures;
@@ -70,6 +72,8 @@ Player_ALL::Player_ALL(
         projectileTextureRect = sf::IntRect({ 0, 0 }, (sf::Vector2i)hitTexture->getSize());
     }
 }
+// --- FIM DO CONSTRUTOR CORRIGIDO ---
+
 
 void Player_ALL::setProjectileTextureRect(const sf::IntRect& rect) {
     projectileTextureRect = rect;
@@ -206,6 +210,7 @@ void Player_ALL::handleMovementAndAnimation(float deltaTime) {
 void Player_ALL::handleAttack() {
     if (!Isaac || !hitTexture) return;
 
+    // A variável cooldownTime já foi carregada no construtor
     if (cooldownClock.getElapsedTime() >= cooldownTime) {
         struct KeyDir { sf::Keyboard::Scancode key; sf::Vector2f dir; float rot; };
         KeyDir dirs[4] = {
@@ -215,7 +220,7 @@ void Player_ALL::handleAttack() {
             {sf::Keyboard::Scancode::Right, {1.f,0.f},  -90.f}
         };
 
-        // Carrega configurações de projétil
+        // Carrega configurações de projétil (Mantido por segurança, mas o carregamento no construtor é o ideal)
         const float projectileScale = ConfigManager::getInstance().getConfig().player.projectile_scale;
         const float origin_x = ConfigManager::getInstance().getConfig().player.projectile_origin_x;
         const float origin_y = ConfigManager::getInstance().getConfig().player.projectile_origin_y;
@@ -233,7 +238,7 @@ void Player_ALL::handleAttack() {
                 p.sprite.setPosition(Isaac->getPosition());
                 p.sprite.setRotation(sf::degrees(d.rot));
                 projectiles.push_back(p);
-                cooldownClock.restart();
+                cooldownClock.restart(); // Reinicia o cooldown, usando o valor carregado
                 break;
             }
         }
@@ -241,6 +246,7 @@ void Player_ALL::handleAttack() {
 }
 
 void Player_ALL::updateProjectiles(float deltaTime, const sf::FloatRect& gameBounds) {
+    // isaacHitSpeed e maxHitDistance são membros da classe carregados no construtor
     for (auto it = projectiles.begin(); it != projectiles.end(); ) {
         it->sprite.move(it->direction * isaacHitSpeed * deltaTime);
         it->distanceTraveled += isaacHitSpeed * deltaTime;
@@ -250,6 +256,7 @@ void Player_ALL::updateProjectiles(float deltaTime, const sf::FloatRect& gameBou
         // colisões com inimigos (na lógica do Game::update) OU se o projétil
         // atingir o limite de distância/fora da sala.
 
+        // Verifica a distância máxima usando maxHitDistance carregado
         if (it->distanceTraveled >= maxHitDistance || !checkCollision(projBounds, gameBounds))
             it = projectiles.erase(it);
         else
@@ -261,6 +268,7 @@ void Player_ALL::handleHitFlash(float deltaTime) {
     if (!Isaac) return;
 
     if (isHit) {
+        // Usa hitFlashDuration que foi carregada no construtor
         if (hitClock.getElapsedTime() < hitFlashDuration) {
             // O jogador está no período de invencibilidade
             Isaac->setColor(sf::Color::Red);

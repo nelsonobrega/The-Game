@@ -125,6 +125,8 @@ public:
         std::cout << "|   Heal:   " << std::setw(4) << config.bishop.heal_amount
             << "                         " << std::endl;
         std::cout << "|====================================\n" << std::endl;
+        std::cout << "DEBUG: Player Attack Cooldown Carregado: "
+            << config.player.attack_cooldown << std::endl;
     }
 };
 
