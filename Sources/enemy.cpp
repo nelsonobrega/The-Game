@@ -3,21 +3,21 @@
 #include <algorithm>
 #include <stdexcept>
 #include <iostream>
-#include <cmath> 
+#include <cmath>
 
-// --- Funções Auxiliares ---
+// --- FunÃ§Ãµes Auxiliares ---
 float calculateAngle(sf::Vector2f p1, sf::Vector2f p2) {
     sf::Vector2f diff = p2 - p1;
-    // Usa Constants::PI_F
     return std::atan2f(-diff.y, diff.x) * 180.f / M_PI;
 }
 
 
-// --- Implementações de EnemyBase ---
+// --- ImplementaÃ§Ãµes de EnemyBase ---
 
 EnemyBase::EnemyBase() {
     const PlayerConfig& player_cfg = ConfigManager::getInstance().getConfig().player;
-    hitFlashDuration = sf::seconds(player_cfg.hit_flash_duration);
+    // CORRIGIDO: Acessar stats.hit_flash_duration
+    hitFlashDuration = sf::seconds(player_cfg.stats.hit_flash_duration);
 }
 
 void EnemyBase::handleHealFlash() {
@@ -94,7 +94,7 @@ void EnemyBase::draw(sf::RenderWindow& window) {
 }
 
 
-// --- Implementações de Demon_ALL ---
+// --- ImplementaÃ§Ãµes de Demon_ALL ---
 
 Demon_ALL::Demon_ALL(
     std::vector<sf::Texture>& walkDown,
@@ -104,17 +104,17 @@ Demon_ALL::Demon_ALL(
     sf::Texture& projectileTextureRef)
     : EnemyBase()
 {
-    const DemonConfig& cfg = ConfigManager::getInstance().getConfig().demon;
+    const auto& config = ConfigManager::getInstance().getConfig().demon;
 
-    health = cfg.initial_health;
-    speed = cfg.speed;
-    frame_duration = cfg.frame_duration;
+    health = config.stats.initial_health;
+    speed = config.stats.speed;
+    frame_duration = config.visual.animation.frame_duration;
 
-    cooldownTime = sf::seconds(cfg.fire_cooldown);
-    attackDelayTime = sf::seconds(cfg.attack_delay);
+    cooldownTime = sf::seconds(config.attack.fire_cooldown);
+    attackDelayTime = sf::seconds(config.attack.attack_delay);
 
-    enemyHitSpeed = cfg.projectile_speed;
-    maxHitDistance = cfg.projectile_max_distance;
+    enemyHitSpeed = config.attack.projectile_speed;
+    maxHitDistance = config.attack.projectile_max_distance;
 
     projectileTexture = &projectileTextureRef;
     textures_walk_down = &walkDown;
@@ -125,9 +125,9 @@ Demon_ALL::Demon_ALL(
 
     if (textures_walk_down && !textures_walk_down->empty()) {
         sprite.emplace(textures_walk_down->at(0));
-        sprite->setScale(sf::Vector2f(cfg.scale, cfg.scale));
-        sprite->setPosition({ cfg.start_position_x, cfg.start_position_y });
-        sprite->setOrigin(sf::Vector2f(cfg.origin_x, cfg.origin_y));
+        sprite->setScale(sf::Vector2f(config.visual.scale, config.visual.scale));
+        sprite->setPosition({ config.spawn.start_position_x, config.spawn.start_position_y });
+        sprite->setOrigin(sf::Vector2f(config.visual.origin_x, config.visual.origin_y));
     }
 
     if (projectileTexture) {
@@ -140,7 +140,8 @@ void Demon_ALL::setProjectileTextureRect(const sf::IntRect& rect) {
 }
 
 void Demon_ALL::heal(int amount) {
-    const int MAX_HEALTH = ConfigManager::getInstance().getConfig().demon.max_health;
+    // CORRIGIDO: Acessar stats.max_health
+    const int MAX_HEALTH = ConfigManager::getInstance().getConfig().demon.stats.max_health;
     health = std::min(MAX_HEALTH, health + amount);
 
     isHealed = true;
@@ -150,7 +151,7 @@ void Demon_ALL::heal(int amount) {
 void Demon_ALL::handleMovementAndAnimation(float deltaTime, sf::Vector2f playerPosition, bool isAttacking) {
     if (!sprite) return;
 
-    const int current_total_frames = ConfigManager::getInstance().getConfig().demon.animation_frames;
+    const int current_total_frames = ConfigManager::getInstance().getConfig().demon.visual.animation.frames;
 
     sf::Vector2f currentPos = sprite->getPosition();
     sf::Vector2f move = playerPosition - currentPos;
@@ -208,7 +209,7 @@ void Demon_ALL::handleMovementAndAnimation(float deltaTime, sf::Vector2f playerP
 void Demon_ALL::handleAttack(sf::Vector2f playerPosition) {
     if (!sprite || !projectileTexture) return;
 
-    const DemonConfig& cfg = ConfigManager::getInstance().getConfig().demon;
+    const auto& config = ConfigManager::getInstance().getConfig().demon;
 
     if (!isPreparingAttack) {
         if (cooldownClock.getElapsedTime() >= cooldownTime) {
@@ -223,9 +224,9 @@ void Demon_ALL::handleAttack(sf::Vector2f playerPosition) {
 
             float baseAngle = calculateAngle(sprite->getPosition(), targetPositionAtStartOfAttack);
 
-            const int numProjectiles = cfg.projectile_count;
-            const float spreadAngle = cfg.projectile_spread;
-            const float projectileScale = cfg.projectile_scale;
+            const int numProjectiles = config.attack.projectile_count;
+            const float spreadAngle = config.attack.projectile_spread;
+            const float projectileScale = config.projectile_visual.scale;
 
             float startOffset = -(spreadAngle / 2.0f);
             float step = (numProjectiles > 1) ? spreadAngle / (numProjectiles - 1) : 0.0f;
@@ -234,7 +235,6 @@ void Demon_ALL::handleAttack(sf::Vector2f playerPosition) {
             for (int i = 0; i < numProjectiles; ++i) {
                 float angleOffset = startOffset + i * step;
                 float finalAngle = baseAngle + angleOffset;
-                // Usa Constants::PI_F
                 float angleRad = finalAngle * (M_PI / 180.f);
 
                 sf::Vector2f direction = { std::cosf(angleRad), -std::sinf(angleRad) };
@@ -274,31 +274,32 @@ void Demon_ALL::update(float deltaTime, sf::Vector2f playerPosition, const sf::F
 }
 
 
-// --- Implementações de Bishop_ALL ---
+
+// --- ImplementaÃ§Ãµes de Bishop_ALL ---
 
 Bishop_ALL::Bishop_ALL(std::vector<sf::Texture>& walkTextures)
     : EnemyBase()
 {
-    const BishopConfig& cfg = ConfigManager::getInstance().getConfig().bishop;
+    const auto& config = ConfigManager::getInstance().getConfig().bishop;
 
-    health = cfg.initial_health;
-    speed = cfg.speed;
+    health = config.stats.initial_health;
+    speed = config.stats.speed;
 
-    frame_duration = cfg.frame_duration;
-    FRAME_B7_INDEX = cfg.heal_trigger_frame;
-    healCooldown = sf::seconds(cfg.heal_cooldown);
+    frame_duration = config.visual.animation.frame_duration;
+    FRAME_B7_INDEX = config.visual.animation.heal_trigger_frame;
+    healCooldown = sf::seconds(config.heal.cooldown);
 
-    center_pull_weight = cfg.center_pull_weight;
-    lateral_bias_frequency = cfg.lateral_bias_frequency;
-    lateral_bias_strength = cfg.lateral_bias_strength;
+    center_pull_weight = config.movement.center_pull_weight;
+    lateral_bias_frequency = config.movement.lateral_bias_frequency;
+    lateral_bias_strength = config.movement.lateral_bias_strength;
 
     textures_idle = &walkTextures;
 
     if (textures_idle && !textures_idle->empty()) {
         sprite.emplace(textures_idle->at(0));
-        sprite->setScale(sf::Vector2f(cfg.scale, cfg.scale));
-        sprite->setPosition({ cfg.start_position_x, cfg.start_position_y });
-        sprite->setOrigin(sf::Vector2f(cfg.origin_x, cfg.origin_y));
+        sprite->setScale(sf::Vector2f(config.visual.scale, config.visual.scale));
+        sprite->setPosition({ config.spawn.start_position_x, config.spawn.start_position_y });
+        sprite->setOrigin(sf::Vector2f(config.visual.origin_x, config.visual.origin_y));
     }
 }
 
@@ -306,7 +307,7 @@ Bishop_ALL::Bishop_ALL(std::vector<sf::Texture>& walkTextures)
 void Bishop_ALL::handleAnimation(float deltaTime) {
     if (!sprite) return;
 
-    const int current_total_frames = ConfigManager::getInstance().getConfig().bishop.animation_frames;
+    const int current_total_frames = ConfigManager::getInstance().getConfig().bishop.visual.animation.frames;
 
     if (isChanting) {
         animation_time += deltaTime;
@@ -315,7 +316,7 @@ void Bishop_ALL::handleAnimation(float deltaTime) {
             animation_time -= frame_duration;
             current_frame = (current_frame + 1);
 
-            if (current_frame == FRAME_B7_INDEX) {
+            if (current_frame == ConfigManager::getInstance().getConfig().bishop.visual.animation.heal_trigger_frame) {
                 if (healClock.getElapsedTime().asSeconds() >= healCooldown.asSeconds()) {
                     canHealDemon = true;
                 }

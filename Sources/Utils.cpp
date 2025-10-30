@@ -2,7 +2,7 @@
 #include <cmath>
 #include <algorithm>
 
-// DEFINI«’ES ⁄NICAS (N√O USAR 'static'!)
+// DEFINI√á√ïES √öNICAS (N√ÉO USAR 'static'!)
 bool checkCollision(const sf::FloatRect& a, const sf::FloatRect& b)
 {
     bool x_overlap = a.position.x < b.position.x + b.size.x &&
@@ -15,6 +15,6 @@ bool checkCollision(const sf::FloatRect& a, const sf::FloatRect& b)
 float calculateAngle(const sf::Vector2f& p1, const sf::Vector2f& p2)
 {
     sf::Vector2f direction = p2 - p1;
-    // M_PI est· disponÌvel aqui, seja pela definiÁ„o do <cmath> ou pela sua no Utils.hpp
+    // M_PI est√° dispon√≠vel aqui, seja pela defini√ß√£o do <cmath> ou pela sua no Utils.hpp
     return static_cast<float>(std::atan2(direction.y, direction.x) * 180.0 / M_PI);
 }

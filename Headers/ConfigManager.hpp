@@ -108,25 +108,31 @@ public:
         std::cout << "|   CONFIGURACOES CARREGADAS         " << std::endl;
         std::cout << "|====================================" << std::endl;
         std::cout << "| Player:                            " << std::endl;
-        std::cout << "|   Health: " << std::setw(4) << config.player.initial_health
+        std::cout << "|   Health: " << std::setw(4) << config.player.stats.initial_health
+            << "                         " << std::endl;
+        std::cout << "|   Damage: " << std::setw(4) << config.player.stats.damage
             << "                         " << std::endl;
         std::cout << "|   Speed:  " << std::setw(6) << std::setprecision(1) << std::fixed
-            << config.player.speed << "                     " << std::endl;
+            << config.player.stats.speed << "                     " << std::endl;
         std::cout << "|                                    " << std::endl;
         std::cout << "| Demon:                             " << std::endl;
-        std::cout << "|   Health: " << std::setw(4) << config.demon.initial_health
+        std::cout << "|   Health: " << std::setw(4) << config.demon.stats.initial_health
+            << "                         " << std::endl;
+        std::cout << "|   Damage: " << std::setw(4) << config.demon.stats.damage
             << "                         " << std::endl;
         std::cout << "|   Speed:  " << std::setw(6) << std::setprecision(1)
-            << config.demon.speed << "                     " << std::endl;
+            << config.demon.stats.speed << "                     " << std::endl;
         std::cout << "|                                    " << std::endl;
         std::cout << "| Bishop:                            " << std::endl;
-        std::cout << "|   Health: " << std::setw(4) << config.bishop.initial_health
+        std::cout << "|   Health: " << std::setw(4) << config.bishop.stats.initial_health
             << "                         " << std::endl;
-        std::cout << "|   Heal:   " << std::setw(4) << config.bishop.heal_amount
+        std::cout << "|   Damage: " << std::setw(4) << config.bishop.stats.damage
+            << "                         " << std::endl;
+        std::cout << "|   Heal:   " << std::setw(4) << config.bishop.heal.amount
             << "                         " << std::endl;
         std::cout << "|====================================\n" << std::endl;
         std::cout << "DEBUG: Player Attack Cooldown Carregado: "
-            << config.player.attack_cooldown << std::endl;
+            << config.player.attack.cooldown << std::endl;
     }
 };
 

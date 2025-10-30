@@ -20,14 +20,15 @@ RoomManager::RoomManager(AssetManager& assetManager, const sf::FloatRect& gameBo
     , transitionState(TransitionState::None)
     , transitionDirection(DoorDirection::None)
     , transitionProgress(0.f)
-    , transitionDuration(0.49f)
+    , transitionDuration(ConfigManager::getInstance().getConfig().game.dungeon.transition_duration)
     // Inicialização do RNG
     , rng(rd())
 {
     std::srand(std::time(nullptr));
 
     // Setup do overlay de transição (tela preta)
-    transitionOverlay.setSize({ 1920.f, 1080.f });
+    const auto& config = ConfigManager::getInstance().getConfig();
+    transitionOverlay.setSize({ (float)config.game.window_width, (float)config.game.window_height });
     transitionOverlay.setFillColor(sf::Color(0, 0, 0, 0));
 }
 
@@ -135,21 +136,36 @@ void RoomManager::generateDungeon(int numRooms) {
         // Lógica de probabilidade elevada para a Sala 0
         bool isSafeZone = (i == 0);
 
-        // --- PROBABILIDADES AUMENTADAS ---
-        // Chance para tentar adicionar a porta extra N (além da garantida)
-        int baseChance2 = isSafeZone ? 100 : 70; // Aumentado de 90/50
-        int baseChance3 = isSafeZone ? 90 : 50;  // Aumentado de 70/30
-        int baseChance4 = isSafeZone ? 70 : 30;  // Aumentado de 50/10
-        int baseChance5 = isSafeZone ? 50 : 15;  // NOVO
-        int baseChance6 = isSafeZone ? 20 : 5;   // NOVO
+// Decide quantas portas extra TENTAR adicionar (máximo 5 tentativas)
+        const auto& config = ConfigManager::getInstance().getConfig();
+        const auto& chancesConfig = config.game.dungeon.extra_door_chances;
+        const std::vector<int>* chances = nullptr;
 
+        for (const auto& chanceEntry : chancesConfig) {
+            if (chanceEntry.is_safe_zone == isSafeZone) {
+                chances = &chanceEntry.chances;
+                break;
+            }
+        }
 
-        // Decide quantas portas extra TENTAR adicionar (máximo 5 tentativas)
-        if (rand() % 100 < baseChance2) doorsToAdd++;
-        if (rand() % 100 < baseChance3) doorsToAdd++;
-        if (rand() % 100 < baseChance4) doorsToAdd++;
-        if (rand() % 100 < baseChance5) doorsToAdd++; // NOVO
-        if (rand() % 100 < baseChance6) doorsToAdd++; // NOVO
+        if (chances) {
+            for (int chance : *chances) {
+                if (rand() % 100 < chance) doorsToAdd++;
+            }
+        } else {
+            // Fallback para valores hardcoded se a config não for encontrada (embora devesse ser)
+            // Mantido o fallback para evitar problemas, mas os valores devem ser lidos do JSON
+            int baseChance2 = isSafeZone ? 100 : 70;
+            int baseChance3 = isSafeZone ? 90 : 50;
+            int baseChance4 = isSafeZone ? 70 : 30;
+            int baseChance5 = isSafeZone ? 50 : 15;
+            int baseChance6 = isSafeZone ? 20 : 5;
+            if (rand() % 100 < baseChance2) doorsToAdd++;
+            if (rand() % 100 < baseChance3) doorsToAdd++;
+            if (rand() % 100 < baseChance4) doorsToAdd++;
+            if (rand() % 100 < baseChance5) doorsToAdd++;
+            if (rand() % 100 < baseChance6) doorsToAdd++;
+        }
 
         // Itera para tentar adicionar as portas extras
         for (int j = 0; j < doorsToAdd; ++j) {
@@ -387,21 +403,24 @@ sf::Vector2i RoomManager::getCurrentRoomCoord() const {
 // Desenha o minimapa no canto superior direito
 void RoomManager::drawMiniMap(sf::RenderWindow& window) {
     // Configurações do minimapa
-    const float miniMapSize = 150.f;
-    const float roomSize = 15.f;
-    const float roomSpacing = 18.f; // Espaço entre salas (inclui tamanho + margem)
-    const float connectionThickness = 2.f;
+    const auto& config = ConfigManager::getInstance().getConfig();
+    const auto& minimapConfig = config.game.minimap;
+
+    const float miniMapSize = minimapConfig.size;
+    const float roomSize = minimapConfig.room_size;
+    const float roomSpacing = minimapConfig.room_spacing; // Espaço entre salas (inclui tamanho + margem)
+    const float connectionThickness = minimapConfig.connection_thickness;
     
     // Posição do minimapa (canto superior direito)
-    const sf::Vector2f miniMapPosition(window.getSize().x - miniMapSize - 20.f, 20.f);
+    const sf::Vector2f miniMapPosition(window.getSize().x - miniMapSize - minimapConfig.offset_x, minimapConfig.offset_y);
     
     // Fundo semitransparente do minimapa
     sf::RectangleShape background;
     background.setSize({ miniMapSize, miniMapSize });
     background.setPosition(miniMapPosition);
-    background.setFillColor(sf::Color(0, 0, 0, 100));
-    background.setOutlineColor(sf::Color(100, 100, 100, 200));
-    background.setOutlineThickness(2.f);
+    background.setFillColor(sf::Color(0, 0, 0, minimapConfig.background_color_alpha));
+    background.setOutlineColor(sf::Color(100, 100, 100, minimapConfig.outline_color_alpha));
+    background.setOutlineThickness(minimapConfig.outline_thickness);
     window.draw(background);
     
     // Adiciona a sala atual às salas visitadas
@@ -472,13 +491,13 @@ void RoomManager::drawMiniMap(sf::RenderWindow& window) {
                 sf::RectangleShape connection;
                 sf::Vector2f direction = neighborPosition - roomPosition;
                 float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
-                float angle = std::atan2(direction.y, direction.x) * 180.f / 3.14159265f;
+float angle = std::atan2(direction.y, direction.x) * 180.f / 3.14159265f;
                 
-                connection.setSize({ length, connectionThickness });
-                connection.setPosition(roomPosition);
-                connection.setOrigin({ 0.f, connectionThickness / 2.f });
+                connection.setSize({ length, minimapConfig.connection_thickness_mini });
+
+                connection.setOrigin({ 0.f, minimapConfig.connection_thickness_mini / 2.f });
                 connection.setRotation(sf::degrees(angle));
-                connection.setFillColor(sf::Color(80, 80, 80, 200));
+                connection.setFillColor(sf::Color(80, 80, 80, minimapConfig.connection_color_alpha));
                 
                 window.draw(connection);
             }
@@ -495,19 +514,19 @@ void RoomManager::drawMiniMap(sf::RenderWindow& window) {
             // Sala atual - vermelho
             roomRect.setFillColor(sf::Color(255, 0, 0, 255));
             roomRect.setOutlineColor(sf::Color(255, 255, 255, 255));
-            roomRect.setOutlineThickness(1.5f);
+            roomRect.setOutlineThickness(minimapConfig.current_room_outline_thickness);
         }
         else if (room.isCleared()) {
             // Sala limpa - branco
             roomRect.setFillColor(sf::Color(255, 255, 255, 255));
             roomRect.setOutlineColor(sf::Color(200, 200, 200, 200));
-            roomRect.setOutlineThickness(1.f);
+            roomRect.setOutlineThickness(minimapConfig.cleared_room_outline_thickness);
         }
         else {
             // Sala visitada mas não limpa - cinzenta
             roomRect.setFillColor(sf::Color(150, 150, 150, 255));
             roomRect.setOutlineColor(sf::Color(200, 200, 200, 200));
-            roomRect.setOutlineThickness(1.f);
+            roomRect.setOutlineThickness(minimapConfig.cleared_room_outline_thickness);
         }
         
         window.draw(roomRect);

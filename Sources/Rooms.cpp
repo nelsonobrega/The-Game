@@ -25,12 +25,13 @@ void Room::addDoor(DoorDirection direction, sf::Texture& doorTexture) {
     door.sprite.emplace(doorTexture);
 
     // 2. Acede ao sprite interno usando o operador ->
-    door.sprite->setTextureRect(sf::IntRect({ 0, 0 }, { 48, 32 }));
+    const auto& doorConfig = ConfigManager::getInstance().getConfig().game.door_visual;
+    door.sprite->setTextureRect(sf::IntRect({ 0, 0 }, { doorConfig.texture_width, doorConfig.texture_height }));
 
     // Origem: 24.f (Centro X) e 31.f (Base - 1px para ficar no limite)
-    door.sprite->setOrigin({ 24.f, 31.f });
+    door.sprite->setOrigin({ doorConfig.origin_x, doorConfig.origin_y });
 
-    door.sprite->setScale({ 3.f, 3.f });
+    door.sprite->setScale({ doorConfig.scale_x, doorConfig.scale_y });
 
     door.isOpen = (type == RoomType::SafeZone);
     door.leadsToRoomID = -1;
@@ -64,8 +65,8 @@ sf::Vector2f Room::getDoorPosition(DoorDirection direction) const {
     float centerX = gameBounds.position.x + gameBounds.size.x / 2.f;
     float centerY = gameBounds.position.y + gameBounds.size.y / 2.f;
 
-    // AJUSTE FINAL: Offset de 5.f para portas nos limites
-    constexpr float doorOffset = 1.f;
+    // AJUSTE FINAL: Offset para portas nos limites
+    const float doorOffset = ConfigManager::getInstance().getConfig().game.dungeon.door_offset;
 
     switch (direction) {
     case DoorDirection::North:
@@ -132,15 +133,17 @@ void Room::spawnEnemies(
         );
 
         // Define recorte de projétil do demon
-        const sf::IntRect DEMON_TEAR_RECT = { {8, 103}, {16, 16} };
+        const auto& demonTearConfig = ConfigManager::getInstance().getConfig().projectile_textures.demon_tear;
+        const sf::IntRect DEMON_TEAR_RECT = { {demonTearConfig.x, demonTearConfig.y}, {demonTearConfig.width, demonTearConfig.height} };
         demon->setProjectileTextureRect(DEMON_TEAR_RECT);
 
         std::cout << "Demon spawned in room " << roomID << std::endl;
     }
 
-    // Bishop tem 30% de chance de spawnar
+    // Bishop tem X% de chance de spawnar (lido da config)
+    const auto& bishopConfig = ConfigManager::getInstance().getConfig().bishop.stats;
     int random = rand() % 100;
-    if (random < 30) {  // 30% chance
+    if (random < bishopConfig.spawn_chance_percent) {  // Chance lida da config
         bishop.emplace(bishopTextures);
         std::cout << "Bishop spawned in room " << roomID << " (30% chance)" << std::endl;
     }
@@ -164,8 +167,8 @@ void Room::update(float deltaTime, sf::Vector2f playerPosition) {
     // Bishop cura demon
     if (bishop && bishop->shouldHealDemon()) {
         if (demon && demon->getHealth() > 0) {
-            // Acede à config.bishop.heal_amount (assumindo a estrutura correta)
-            const int healAmount = ConfigManager::getInstance().getConfig().bishop.heal_amount;
+            // Acede à config.bishop.heal.amount (agora aninhado)
+            const int healAmount = ConfigManager::getInstance().getConfig().bishop.heal.amount;
             demon->heal(healAmount);
             bishop->resetHealFlag();
             std::cout << "Bishop healed Demon for " << healAmount << " HP" << std::endl;
@@ -253,7 +256,7 @@ int Room::getDoorLeadsTo(DoorDirection direction) const {
 // Retorna a posição ideal de SPAN DO JOGADOR perto de uma porta.
 sf::Vector2f Room::getPlayerSpawnPosition(DoorDirection doorDirection) const {
     sf::Vector2f pos = getDoorPosition(doorDirection);
-    float offset = 60.f; // Afasta 30 pixels da porta
+    float offset = ConfigManager::getInstance().getConfig().game.dungeon.player_spawn_offset; // Afasta X pixels da porta
 
     switch (doorDirection) {
         case DoorDirection::North:
