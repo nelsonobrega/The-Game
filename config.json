@@ -1,8 +1,8 @@
 {
   "player": {
     "stats": {
-      "initial_health": 14,
-      "damage": 13,
+      "initial_health": 6,
+      "damage": 1,
       "speed": 350.0,
       "hit_flash_duration": 0.05
     },
@@ -116,7 +116,7 @@
   ]
 },
     "ui": {
-      "max_hearts": 6,
+      "max_hearts": 3,
       "heart_spacing": 67.0,
       "heart_scale": 3.0,
       "heart_ui_x": 200.0,
