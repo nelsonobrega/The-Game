@@ -32,7 +32,7 @@ struct PlayerVisualConfig {
 // Player Stats Config
 struct PlayerStatsConfig {
     int initial_health = 6;
-    int damage = 1; // NOVO: Variável de dano
+    int damage = 1;
     float speed = 350.0f;
     float hit_flash_duration = 0.1f;
 };
@@ -80,7 +80,7 @@ struct DemonAnimationConfig {
 struct DemonStatsConfig {
     int initial_health = 13;
     int max_health = 30;
-    int damage = 1; // NOVO: Variável de dano
+    int damage = 1;
     float speed = 150.0f;
 };
 
@@ -136,9 +136,9 @@ struct BishopAnimationConfig {
 // Bishop Stats Config
 struct BishopStatsConfig {
     int initial_health = 20;
-    int damage = 1; // NOVO: Variável de dano
+    int damage = 1;
     float speed = 310.0f;
-    int spawn_chance_percent = 30; // NOVO: Chance de spawn
+    int spawn_chance_percent = 30;
 };
 
 // Bishop Movement Config
@@ -189,9 +189,10 @@ struct GameBoundsConfig {
     float height = 720.40f;
 };
 
-// Dungeon Config
+// Dungeon Config - ATUALIZADO COM MIN/MAX ROOMS
 struct DungeonConfig {
-    int num_rooms = 5;
+    int min_rooms = 6;      // NOVO
+    int max_rooms = 16;     // NOVO
     float transition_duration = 0.49f;
     float player_spawn_offset = 60.0f;
     float door_offset = 1.0f;
@@ -279,8 +280,8 @@ struct CornerTextureConfig {
     };
 
     Option option_a = { 0, 0, 234, 156 };
-    Option option_b = { 0, 156, 234, 155 };
-    Option option_c = { 234, 0, 234, 155 };
+    Option option_b = { 0, 156, 234, 156 };
+    Option option_c = { 234, 0, 234, 156 };
 
     float scale_x = 960.0f / 234.0f;
     float scale_y = 540.0f / 156.0f;
@@ -488,9 +489,10 @@ inline void from_json(const json& j, DungeonConfig::ExtraDoorChance& c) {
     }
 }
 
-// Dungeon
+// Dungeon - ATUALIZADO COM MIN/MAX ROOMS
 inline void from_json(const json& j, DungeonConfig& c) {
-    c.num_rooms = j.value("num_rooms", 5);
+    c.min_rooms = j.value("min_rooms", 6);
+    c.max_rooms = j.value("max_rooms", 16);
     c.transition_duration = j.value("transition_duration", 0.49f);
     c.player_spawn_offset = j.value("player_spawn_offset", 60.0f);
     c.door_offset = j.value("door_offset", 1.0f);

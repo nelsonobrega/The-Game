@@ -139,8 +139,13 @@ Game::Game()
     // --- CONFIGURAÇÃO DO ROOM MANAGER ---
     roomManager.emplace(assets, gameBounds);
 
-    // Gera salas
-    roomManager->generateDungeon(config.game.dungeon.num_rooms);
+    // Gera número aleatório de salas entre min e max (lidos da config)
+    int minRooms = config.game.dungeon.min_rooms;
+    int maxRooms = config.game.dungeon.max_rooms;
+    int numRooms = minRooms + (rand() % (maxRooms - minRooms + 1));
+
+    std::cout << "Gerando dungeon com " << numRooms << " salas..." << std::endl;
+    roomManager->generateDungeon(numRooms);
 }
 
 void Game::setupMenu() {

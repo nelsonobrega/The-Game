@@ -104,16 +104,17 @@
       "width": 1493.34,
       "height": 720.40
     },
-    "dungeon": {
-      "num_rooms": 5,
-      "transition_duration": 0.49,
-      "player_spawn_offset": 60.0,
-      "door_offset": 1.0,
-      "extra_door_chances": [
-        { "is_safe_zone": true, "chances": [100, 90, 70, 50, 20] },
-        { "is_safe_zone": false, "chances": [70, 50, 30, 15, 5] }
-      ]
-    },
+"dungeon": {
+  "min_rooms": 6,
+  "max_rooms": 16,
+  "transition_duration": 0.49,
+  "player_spawn_offset": 60.0,
+  "door_offset": 1.0,
+  "extra_door_chances": [
+    { "is_safe_zone": true, "chances": [100, 90, 70, 50, 20] },
+    { "is_safe_zone": false, "chances": [70, 20, 10, 5, 1] }
+  ]
+},
     "ui": {
       "max_hearts": 6,
       "heart_spacing": 67.0,
