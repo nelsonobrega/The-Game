@@ -72,6 +72,7 @@ public:
     void update(float deltaTime, sf::Vector2f playerPosition, const sf::FloatRect& gameBounds) override;
 
     void heal(int amount);
+    void setHealth(int newHealth); // NOVO: Para definir a vida do Boss
     void setProjectileTextureRect(const sf::IntRect& rect);
 
 private:

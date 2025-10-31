@@ -139,6 +139,10 @@ void Demon_ALL::setProjectileTextureRect(const sf::IntRect& rect) {
     projectileTextureRect = rect;
 }
 
+void Demon_ALL::setHealth(int newHealth) {
+    health = newHealth;
+}
+
 void Demon_ALL::heal(int amount) {
     // CORRIGIDO: Acessar stats.max_health
     const int MAX_HEALTH = ConfigManager::getInstance().getConfig().demon.stats.max_health;

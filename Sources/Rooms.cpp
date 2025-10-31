@@ -10,30 +10,48 @@ Room::Room(int id, RoomType type, const sf::FloatRect& gameBounds)
     : roomID(id)
     , type(type)
     , gameBounds(gameBounds)
-    // A Safe Zone (Room 0) está sempre limpa
     , cleared(type == RoomType::SafeZone)
     , doorsOpened(type == RoomType::SafeZone)
 {
 }
 
-// Adiciona uma porta à sala
-void Room::addDoor(DoorDirection direction, sf::Texture& doorTexture) {
+// MODIFICADO: Adiciona uma porta à sala usando o spritesheet correto
+void Room::addDoor(DoorDirection direction, DoorType doorType, sf::Texture& doorSpritesheet) {
     Door door;
     door.direction = direction;
+    door.type = doorType;
 
-    // 1. Inicializa o std::optional<sf::Sprite>
-    door.sprite.emplace(doorTexture);
+    // Inicializa o sprite com o spritesheet
+    door.sprite.emplace(doorSpritesheet);
 
-    // 2. Acede ao sprite interno usando o operador ->
-    const auto& doorConfig = ConfigManager::getInstance().getConfig().game.door_normal;
-    door.sprite->setTextureRect(sf::IntRect({ 0, 0 }, { doorConfig.texture_width, doorConfig.texture_height }));
+    const auto& config = ConfigManager::getInstance().getConfig();
+    const auto* doorConfig = &config.game.door_normal;
 
-    // Origem: 24.f (Centro X) e 31.f (Base - 1px para ficar no limite)
-    door.sprite->setOrigin({ doorConfig.origin_x, doorConfig.origin_y });
+    // Seleciona a configuração correta baseada no tipo
+    if (doorType == DoorType::Boss) {
+        doorConfig = &config.game.door_boss;
+    }
+    else if (doorType == DoorType::Treasure) {
+        doorConfig = &config.game.door_treasure;
+    }
 
-    door.sprite->setScale({ doorConfig.scale_x, doorConfig.scale_y });
+    // Define o rect correto no spritesheet
+    sf::IntRect textureRect;
 
-    door.isOpen = (type == RoomType::SafeZone);
+    if (doorType == DoorType::Boss || doorType == DoorType::Treasure) {
+        // Boss e Treasure usam frame_start_x e frame_start_y
+        textureRect = sf::IntRect({ doorConfig->frame_start_x,doorConfig->frame_start_y }, { doorConfig->texture_width, doorConfig->texture_height });
+    }
+    else {
+        // Normal usa posição (0, 0)
+        textureRect = sf::IntRect({ 0,0 }, { doorConfig->texture_width, doorConfig->texture_height });
+    }
+
+    door.sprite->setTextureRect(textureRect);
+    door.sprite->setOrigin({ doorConfig->origin_x, doorConfig->origin_y });
+    door.sprite->setScale({ doorConfig->scale_x, doorConfig->scale_y });
+
+    door.isOpen = (this->type == RoomType::SafeZone);
     door.leadsToRoomID = -1;
 
     // Define posição baseada na direção
@@ -65,18 +83,17 @@ sf::Vector2f Room::getDoorPosition(DoorDirection direction) const {
     float centerX = gameBounds.position.x + gameBounds.size.x / 2.f;
     float centerY = gameBounds.position.y + gameBounds.size.y / 2.f;
 
-    // AJUSTE FINAL: Offset para portas nos limites
     const float doorOffset = ConfigManager::getInstance().getConfig().game.dungeon.door_offset;
 
     switch (direction) {
     case DoorDirection::North:
-        return { centerX, gameBounds.position.y + doorOffset };  // Top 
+        return { centerX, gameBounds.position.y + doorOffset };
     case DoorDirection::South:
-        return { centerX, gameBounds.position.y + gameBounds.size.y - doorOffset };  // Bottom
+        return { centerX, gameBounds.position.y + gameBounds.size.y - doorOffset };
     case DoorDirection::East:
-        return { gameBounds.position.x + gameBounds.size.x - doorOffset, centerY };  // Right
+        return { gameBounds.position.x + gameBounds.size.x - doorOffset, centerY };
     case DoorDirection::West:
-        return { gameBounds.position.x + doorOffset, centerY };  // Left
+        return { gameBounds.position.x + doorOffset, centerY };
     default:
         return { centerX, centerY };
     }
@@ -107,22 +124,18 @@ void Room::spawnEnemies(
     sf::Texture& demonProjectileTexture,
     std::vector<sf::Texture>& bishopTextures)
 {
-    // Se for Safe Zone, retorna imediatamente (Nunca tem inimigos)
-    if (type == RoomType::SafeZone) {
+    if (type == RoomType::SafeZone || type == RoomType::Treasure) {
         return;
     }
 
-    // Não spawna inimigos se a sala já foi limpa.
     if (cleared) {
         return;
     }
 
-    // Verifica se já existem inimigos (proteção contra chamadas duplas antes de limpar)
     if (demon.has_value() || bishop.has_value()) {
         return;
     }
 
-    // Demon sempre spawna em salas de combate
     if (type == RoomType::Normal) {
         demon.emplace(
             demonWalkDown,
@@ -132,42 +145,54 @@ void Room::spawnEnemies(
             demonProjectileTexture
         );
 
-        // Define recorte de projétil do demon
         const auto& demonTearConfig = ConfigManager::getInstance().getConfig().projectile_textures.demon_tear;
         const sf::IntRect DEMON_TEAR_RECT = { {demonTearConfig.x, demonTearConfig.y}, {demonTearConfig.width, demonTearConfig.height} };
         demon->setProjectileTextureRect(DEMON_TEAR_RECT);
 
         std::cout << "Demon spawned in room " << roomID << std::endl;
-    }
 
-    // Bishop tem X% de chance de spawnar (lido da config)
-    const auto& bishopConfig = ConfigManager::getInstance().getConfig().bishop.stats;
-    int random = rand() % 100;
-    if (random < bishopConfig.spawn_chance_percent) {  // Chance lida da config
-        bishop.emplace(bishopTextures);
-        std::cout << "Bishop spawned in room " << roomID << " (30% chance)" << std::endl;
+        const auto& bishopConfig = ConfigManager::getInstance().getConfig().bishop.stats;
+        int random = rand() % 100;
+        if (random < bishopConfig.spawn_chance_percent) {
+            bishop.emplace(bishopTextures);
+            std::cout << "Bishop spawned in room " << roomID << " (" << bishopConfig.spawn_chance_percent << "% chance)" << std::endl;
+        }
+        else {
+            std::cout << "Bishop NOT spawned in room " << roomID << " (rolled " << random << "%)" << std::endl;
+        }
     }
-    else {
-        std::cout << "Bishop NOT spawned in room " << roomID << " (rolled " << random << "%)" << std::endl;
+    else if (type == RoomType::Boss) {
+        demon.emplace(
+            demonWalkDown,
+            demonWalkUp,
+            demonWalkLeft,
+            demonWalkRight,
+            demonProjectileTexture
+        );
+
+        const auto& demonConfig = ConfigManager::getInstance().getConfig().demon.stats;
+        demon->setHealth(demonConfig.max_health);
+
+        const auto& demonTearConfig = ConfigManager::getInstance().getConfig().projectile_textures.demon_tear;
+        const sf::IntRect DEMON_TEAR_RECT = { {demonTearConfig.x, demonTearConfig.y}, {demonTearConfig.width, demonTearConfig.height} };
+        demon->setProjectileTextureRect(DEMON_TEAR_RECT);
+
+        std::cout << "BOSS Demon spawned in room " << roomID << " with " << demonConfig.max_health << " HP" << std::endl;
     }
 }
 
 // Update da sala
 void Room::update(float deltaTime, sf::Vector2f playerPosition) {
-    // Update demon
     if (demon && demon->getHealth() > 0) {
         demon->update(deltaTime, playerPosition, gameBounds);
     }
 
-    // Update bishop
     if (bishop && bishop->getHealth() > 0) {
         bishop->update(deltaTime, playerPosition, gameBounds);
     }
 
-    // Bishop cura demon
     if (bishop && bishop->shouldHealDemon()) {
         if (demon && demon->getHealth() > 0) {
-            // Acede à config.bishop.heal.amount (agora aninhado)
             const int healAmount = ConfigManager::getInstance().getConfig().bishop.heal.amount;
             demon->heal(healAmount);
             bishop->resetHealFlag();
@@ -175,21 +200,17 @@ void Room::update(float deltaTime, sf::Vector2f playerPosition) {
         }
     }
 
-    // Verifica se a sala foi limpa
     checkIfCleared();
 }
 
 // Draw da sala
 void Room::draw(sf::RenderWindow& window) {
-    // Desenha portas
     for (const auto& door : doors) {
-        // Usa .has_value() para garantir que o sprite foi inicializado
         if (door.sprite.has_value() && (door.isOpen || cleared)) {
-            window.draw(*door.sprite); // Usa * para obter o objeto sf::Sprite
+            window.draw(*door.sprite);
         }
     }
 
-    // Desenha inimigos
     if (demon && demon->getHealth() > 0) {
         demon->draw(window);
     }
@@ -199,11 +220,17 @@ void Room::draw(sf::RenderWindow& window) {
     }
 }
 
-// Verifica se a sala está limpa (todos inimigos mortos)
+// Verifica se a sala está limpa
 void Room::checkIfCleared() {
-    if (cleared) return;  // Já limpa
+    if (cleared) return;
 
-    // Um inimigo não existe (!demon) ou está morto (getHealth() <= 0)
+    if (type == RoomType::Treasure) {
+        cleared = true;
+        openDoors();
+        std::cout << "Room " << roomID << " (Treasure) CLEARED! Doors opened." << std::endl;
+        return;
+    }
+
     bool demonDead = !demon || demon->getHealth() <= 0;
     bool bishopDead = !bishop || bishop->getHealth() <= 0;
 
@@ -224,7 +251,6 @@ void Room::openDoors() {
 
 // Fecha as portas
 void Room::closeDoors() {
-    // Apenas fecha se a sala não estiver limpa
     if (!cleared) {
         for (auto& door : doors) {
             door.isOpen = false;
@@ -253,21 +279,31 @@ int Room::getDoorLeadsTo(DoorDirection direction) const {
     return -1;
 }
 
-// Retorna a posição ideal de SPAN DO JOGADOR perto de uma porta.
+// Retorna o tipo de porta
+DoorType Room::getDoorType(DoorDirection direction) const {
+    for (const auto& door : doors) {
+        if (door.direction == direction) {
+            return door.type;
+        }
+    }
+    return DoorType::Normal;
+}
+
+// Retorna a posição de spawn do jogador
 sf::Vector2f Room::getPlayerSpawnPosition(DoorDirection doorDirection) const {
     sf::Vector2f pos = getDoorPosition(doorDirection);
-    float offset = ConfigManager::getInstance().getConfig().game.dungeon.player_spawn_offset; // Afasta X pixels da porta
+    float offset = ConfigManager::getInstance().getConfig().game.dungeon.player_spawn_offset;
 
     switch (doorDirection) {
-        case DoorDirection::North:
-            return { pos.x, pos.y + offset }; // Aparece abaixo da porta
-        case DoorDirection::South:
-            return { pos.x, pos.y - offset }; // Aparece acima da porta
-        case DoorDirection::East:
-            return { pos.x - offset, pos.y }; // Aparece à esquerda da porta
-        case DoorDirection::West:
-            return { pos.x + offset, pos.y }; // Aparece à direita da porta
-        default:
-            return { gameBounds.position.x + gameBounds.size.x / 2.f, gameBounds.position.y + gameBounds.size.y / 2.f }; // Centro
-        }
+    case DoorDirection::North:
+        return { pos.x, pos.y + offset };
+    case DoorDirection::South:
+        return { pos.x, pos.y - offset };
+    case DoorDirection::East:
+        return { pos.x - offset, pos.y };
+    case DoorDirection::West:
+        return { pos.x + offset, pos.y };
+    default:
+        return { gameBounds.position.x + gameBounds.size.x / 2.f, gameBounds.position.y + gameBounds.size.y / 2.f };
+    }
 }

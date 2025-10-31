@@ -232,6 +232,8 @@ struct MenuConfig {
 struct DoorVisualConfig {
     int texture_width = 48;
     int texture_height = 32;
+    int frame_start_x = 0;  // NOVO
+    int frame_start_y = 0;  // NOVO
     float origin_x = 24.0f;
     float origin_y = 31.0f;
     float scale_x = 3.0f;
@@ -265,6 +267,8 @@ struct GameConfig_General {
     UIConfig ui;
     MenuConfig menu;
     DoorVisualConfig door_normal;
+    DoorVisualConfig door_boss; // NOVO
+    DoorVisualConfig door_treasure; // NOVO
     MinimapConfig minimap;
 };
 
@@ -530,6 +534,8 @@ inline void from_json(const json& j, MenuConfig& c) {
 inline void from_json(const json& j, DoorVisualConfig& c) {
     c.texture_width = j.value("texture_width", 48);
     c.texture_height = j.value("texture_height", 32);
+    c.frame_start_x = j.value("frame_start_x", 0);  // NOVO
+    c.frame_start_y = j.value("frame_start_y", 0);  // NOVO
     c.origin_x = j.value("origin_x", 24.0f);
     c.origin_y = j.value("origin_y", 31.0f);
     c.scale_x = j.value("scale_x", 3.0f);
@@ -564,6 +570,8 @@ inline void from_json(const json& j, GameConfig_General& c) {
     if (j.contains("ui")) c.ui = j["ui"].get<UIConfig>();
     if (j.contains("menu")) c.menu = j["menu"].get<MenuConfig>();
     if (j.contains("door_normal")) c.door_normal = j["door_normal"].get<DoorVisualConfig>();
+    if (j.contains("door_boss")) c.door_boss = j["door_boss"].get<DoorVisualConfig>(); // NOVO
+    if (j.contains("door_treasure")) c.door_treasure = j["door_treasure"].get<DoorVisualConfig>(); // NOVO
     if (j.contains("minimap")) c.minimap = j["minimap"].get<MinimapConfig>();
 }
 

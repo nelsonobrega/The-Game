@@ -65,17 +65,22 @@ void RoomManager::generateDungeon(int numRooms) {
     sf::Texture& doorTexture = assets.getTexture("Door");
     int nextAvailableRoomID = 0;
 
-    // 1. Cria Sala 0 (Safe Zone)
-    createRoom(nextAvailableRoomID, RoomType::SafeZone);
-    coordToRoomID[{0, 0}] = nextAvailableRoomID;
-    nextAvailableRoomID++;
+	// 1. Cria Sala 0 (Safe Zone)
+	createRoom(nextAvailableRoomID, RoomType::SafeZone);
+	coordToRoomID[{0, 0}] = nextAvailableRoomID;
+	nextAvailableRoomID++;
+
+    // Reset das flags de salas especiais
+    bossRoomGenerated = false;
+    treasureRoomGenerated = false;
 
     // Fila de salas existentes que podem ter novas conexões (coordenadas)
     std::vector<sf::Vector2i> availableCoords;
     availableCoords.push_back({ 0, 0 });
 
     // 2. Criação da Cadeia Principal (DFS / Spanning Tree)
-    while (nextAvailableRoomID < numRooms && !availableCoords.empty()) {
+    // O loop deve ir até numRooms - 2 para deixar espaço para a Treasure Room e Boss Room
+    while (nextAvailableRoomID < numRooms - 2 && !availableCoords.empty()) {
 
         // Escolhe uma sala existente de onde ramificar
         std::uniform_int_distribution<> coordDist(0, availableCoords.size() - 1);
@@ -100,11 +105,11 @@ void RoomManager::generateDungeon(int numRooms) {
                 createRoom(newRoomID, RoomType::Normal);
                 coordToRoomID[nextCoord] = newRoomID;
 
-                // Conecta as duas salas
-                DoorDirection oppositeDir = getOppositeDirection(dir);
-                rooms.at(parentID).addDoor(dir, doorTexture);
-                rooms.at(newRoomID).addDoor(oppositeDir, doorTexture);
-                connectRooms(parentID, newRoomID, dir);
+	                // Conecta as duas salas
+	                DoorDirection oppositeDir = getOppositeDirection(dir);
+	                rooms.at(parentID).addDoor(dir, DoorType::Normal, doorTexture);
+	                rooms.at(newRoomID).addDoor(oppositeDir, DoorType::Normal, doorTexture);
+	                connectRooms(parentID, newRoomID, dir);
 
                 // Adiciona nova sala ao pool de ramificação
                 availableCoords.push_back(nextCoord);
@@ -127,7 +132,8 @@ void RoomManager::generateDungeon(int numRooms) {
 
 
     // 3. Adiciona Conexões Extras (Loops para evitar dead-ends no grid e dar variedade)
-    for (int i = 0; i < nextAvailableRoomID; ++i) {
+    // Exclui as salas especiais (Boss e Treasure) da adição de portas extras
+    for (int i = 0; i < numRooms - 2; ++i) {
         Room& currentRoom = rooms.at(i);
 
         // Define a probabilidade de tentar adicionar portas extras
@@ -205,20 +211,20 @@ void RoomManager::generateDungeon(int numRooms) {
                 // Evita loops que se ligam à própria sala
                 if (neighborID == i) continue;
 
-                // Verifica se a porta já existe na sala atual 
-                if (!currentRoom.hasDoor(extraDir)) {
-                    Room& neighborRoom = rooms.at(neighborID);
-                    DoorDirection oppositeDir = getOppositeDirection(extraDir);
-
-                    // Só conecta se a sala vizinha também tiver a direção oposta livre
-                    if (!neighborRoom.hasDoor(oppositeDir)) {
-
-                        // Adiciona portas a ambas as salas
-                        currentRoom.addDoor(extraDir, doorTexture);
-                        neighborRoom.addDoor(oppositeDir, doorTexture);
-
-                        // Conecta-as
-                        connectRooms(i, neighborID, extraDir);
+	                // Verifica se a porta já existe na sala atual 
+	                if (!currentRoom.hasDoor(extraDir)) {
+	                    Room& neighborRoom = rooms.at(neighborID);
+	                    DoorDirection oppositeDir = getOppositeDirection(extraDir);
+	
+	                    // Só conecta se a sala vizinha também tiver a direção oposta livre
+	                    if (!neighborRoom.hasDoor(oppositeDir)) {
+	
+	                        // Adiciona portas a ambas as salas
+	                        currentRoom.addDoor(extraDir, DoorType::Normal, doorTexture);
+	                        neighborRoom.addDoor(oppositeDir, DoorType::Normal, doorTexture);
+	
+	                        // Conecta-as
+	                        connectRooms(i, neighborID, extraDir);
 
                         std::cout << "   Room " << i << " at (" << currentCoord.x << "," << currentCoord.y << ") [" << dirToString(extraDir)
                             << "] ↔ Loop to Room " << neighborID << " at (" << neighborCoord.x << "," << neighborCoord.y << ")" << std::endl;
@@ -227,6 +233,107 @@ void RoomManager::generateDungeon(int numRooms) {
             }
         }
     }
+
+
+    // 4. Geração das Salas Especiais (Boss e Treasure)
+    // A Boss Room deve ser a última sala a ser gerada (ID = numRooms - 1)
+    // A Treasure Room deve ser a penúltima sala a ser gerada (ID = numRooms - 2)
+
+    // Encontra uma sala para a Treasure Room (deve ser uma sala Normal)
+    sf::Vector2i treasureParentCoord = { 0, 0 };
+    int treasureParentID = -1;
+    DoorDirection treasureDoorDir = DoorDirection::None;
+
+    // Tenta encontrar uma sala Normal com pelo menos uma porta livre
+    for (const auto& pair : coordToRoomID) {
+        int roomID = pair.second;
+        Room& room = rooms.at(roomID);
+
+        if (room.getType() == RoomType::Normal) {
+            std::vector<DoorDirection> availableDirs = { DoorDirection::North, DoorDirection::South, DoorDirection::East, DoorDirection::West };
+            for (const auto& door : room.getDoors()) {
+                availableDirs.erase(std::remove(availableDirs.begin(), availableDirs.end(), door.direction), availableDirs.end());
+            }
+
+            if (!availableDirs.empty()) {
+                std::shuffle(availableDirs.begin(), availableDirs.end(), rng);
+                treasureDoorDir = availableDirs[0];
+                treasureParentCoord = pair.first;
+                treasureParentID = roomID;
+                break;
+            }
+        }
+    }
+
+	    if (treasureParentID != -1) {
+	        int treasureRoomID = numRooms - 2;
+	        sf::Vector2i treasureCoord = getNextCoord(treasureParentCoord, treasureDoorDir);
+	
+	        // Cria a Treasure Room
+	        createRoom(treasureRoomID, RoomType::Treasure);
+	        coordToRoomID[treasureCoord] = treasureRoomID;
+	        treasureRoomGenerated = true;
+	
+	        // Conecta a Treasure Room
+	        sf::Texture& doorTexture = assets.getTexture("Door");
+	        DoorDirection oppositeDir = getOppositeDirection(treasureDoorDir);
+	
+	        rooms.at(treasureParentID).addDoor(treasureDoorDir, DoorType::Treasure, doorTexture);
+	        rooms.at(treasureRoomID).addDoor(oppositeDir, DoorType::Treasure, doorTexture);
+	        connectRooms(treasureParentID, treasureRoomID, treasureDoorDir);
+	
+	        std::cout << "   Treasure Room " << treasureRoomID << " at (" << treasureCoord.x << "," << treasureCoord.y
+	            << ") connected to Room " << treasureParentID << " at (" << treasureParentCoord.x << "," << treasureParentCoord.y << ")" << std::endl;
+	    }
+
+
+    // Encontra uma sala para a Boss Room (deve ser uma sala Normal)
+    sf::Vector2i bossParentCoord = { 0, 0 };
+    int bossParentID = -1;
+    DoorDirection bossDoorDir = DoorDirection::None;
+
+    // Tenta encontrar uma sala Normal com pelo menos uma porta livre
+    for (const auto& pair : coordToRoomID) {
+        int roomID = pair.second;
+        Room& room = rooms.at(roomID);
+
+        if (room.getType() == RoomType::Normal) {
+            std::vector<DoorDirection> availableDirs = { DoorDirection::North, DoorDirection::South, DoorDirection::East, DoorDirection::West };
+            for (const auto& door : room.getDoors()) {
+                availableDirs.erase(std::remove(availableDirs.begin(), availableDirs.end(), door.direction), availableDirs.end());
+            }
+
+            if (!availableDirs.empty()) {
+                std::shuffle(availableDirs.begin(), availableDirs.end(), rng);
+                bossDoorDir = availableDirs[0];
+                bossParentCoord = pair.first;
+                bossParentID = roomID;
+                break;
+            }
+        }
+    }
+
+	    if (bossParentID != -1) {
+	        int bossRoomID = numRooms - 1;
+	        sf::Vector2i bossCoord = getNextCoord(bossParentCoord, bossDoorDir);
+	
+	        // Cria a Boss Room
+	        createRoom(bossRoomID, RoomType::Boss);
+	        coordToRoomID[bossCoord] = bossRoomID;
+	        bossRoomGenerated = true;
+	
+	        // Conecta a Boss Room
+	        sf::Texture& doorTexture = assets.getTexture("Door");
+	        DoorDirection oppositeDir = getOppositeDirection(bossDoorDir);
+	
+	        // A Boss Room só pode ter uma entrada, então a sala Boss só recebe a porta
+	        rooms.at(bossParentID).addDoor(bossDoorDir, DoorType::Boss, doorTexture);
+	        rooms.at(bossRoomID).addDoor(oppositeDir, DoorType::Boss, doorTexture);
+	        connectRooms(bossParentID, bossRoomID, bossDoorDir);
+	
+	        std::cout << "   Boss Room " << bossRoomID << " at (" << bossCoord.x << "," << bossCoord.y
+	            << ") connected to Room " << bossParentID << " at (" << bossParentCoord.x << "," << bossParentCoord.y << ")" << std::endl;
+	    }
 
 
     // Define sala inicial
@@ -408,12 +515,12 @@ void RoomManager::drawMiniMap(sf::RenderWindow& window) {
 
     const float miniMapSize = minimapConfig.size;
     const float roomSize = minimapConfig.room_size;
-    const float roomSpacing = minimapConfig.room_spacing; // Espaço entre salas (inclui tamanho + margem)
+    const float roomSpacing = minimapConfig.room_spacing;
     const float connectionThickness = minimapConfig.connection_thickness;
-    
+
     // Posição do minimapa (canto superior direito)
     const sf::Vector2f miniMapPosition(window.getSize().x - miniMapSize - minimapConfig.offset_x, minimapConfig.offset_y);
-    
+
     // Fundo semitransparente do minimapa
     sf::RectangleShape background;
     background.setSize({ miniMapSize, miniMapSize });
@@ -422,22 +529,22 @@ void RoomManager::drawMiniMap(sf::RenderWindow& window) {
     background.setOutlineColor(sf::Color(100, 100, 100, minimapConfig.outline_color_alpha));
     background.setOutlineThickness(minimapConfig.outline_thickness);
     window.draw(background);
-    
+
     // Adiciona a sala atual às salas visitadas
     visitedRooms.insert(currentRoomID);
-    
+
     // Obtém coordenadas da sala atual
     sf::Vector2i currentCoord = getCurrentRoomCoord();
-    
+
     // Centro do minimapa
     sf::Vector2f miniMapCenter = miniMapPosition + sf::Vector2f(miniMapSize / 2.f, miniMapSize / 2.f);
-    
+
     // Desenha apenas as salas visitadas e suas conexões
     for (int visitedRoomID : visitedRooms) {
         // Encontra as coordenadas desta sala visitada
         sf::Vector2i roomCoord = { 0, 0 };
         bool found = false;
-        
+
         for (const auto& pair : coordToRoomID) {
             if (pair.second == visitedRoomID) {
                 roomCoord = pair.first;
@@ -445,90 +552,107 @@ void RoomManager::drawMiniMap(sf::RenderWindow& window) {
                 break;
             }
         }
-        
+
         if (!found) continue;
-        
+
         // Calcula posição relativa à sala atual
         sf::Vector2i relativeCoord = roomCoord - currentCoord;
-        
+
         // Posição no minimapa (centralizada na sala atual)
         sf::Vector2f roomPosition = miniMapCenter + sf::Vector2f(
             relativeCoord.x * roomSpacing,
             relativeCoord.y * roomSpacing
         );
-        
+
         // Verifica se a sala está dentro dos limites do minimapa
         sf::FloatRect miniMapBounds({ miniMapPosition.x, miniMapPosition.y }, { miniMapSize, miniMapSize });
         sf::FloatRect roomBounds({ roomPosition.x - roomSize / 2.f, roomPosition.y - roomSize / 2.f }, { roomSize, roomSize });
-        
+
         if (!checkCollision(miniMapBounds, roomBounds)) {
             continue; // Sala fora do minimapa visível
         }
-        
+
         // Desenha conexões (linhas) para salas adjacentes visitadas
         Room& room = rooms.at(visitedRoomID);
         for (const auto& door : room.getDoors()) {
             int neighborID = door.leadsToRoomID;
-            
+
             // Verifica se a sala vizinha foi visitada
             if (neighborID != -1 && visitedRooms.count(neighborID) > 0) {
                 sf::Vector2i neighborCoord = { 0, 0 };
-                
+
                 for (const auto& pair : coordToRoomID) {
                     if (pair.second == neighborID) {
                         neighborCoord = pair.first;
                         break;
                     }
                 }
-                
+
                 sf::Vector2i relativeNeighbor = neighborCoord - currentCoord;
                 sf::Vector2f neighborPosition = miniMapCenter + sf::Vector2f(
                     relativeNeighbor.x * roomSpacing,
                     relativeNeighbor.y * roomSpacing
                 );
-                
+
                 // Desenha linha de conexão
                 sf::RectangleShape connection;
                 sf::Vector2f direction = neighborPosition - roomPosition;
                 float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
-float angle = std::atan2(direction.y, direction.x) * 180.f / 3.14159265f;
-                
-                connection.setSize({ length, minimapConfig.connection_thickness_mini });
+                float angle = std::atan2(direction.y, direction.x) * 180.f / 3.14159265f;
 
+                connection.setSize({ length, minimapConfig.connection_thickness_mini });
+                connection.setPosition(roomPosition);
                 connection.setOrigin({ 0.f, minimapConfig.connection_thickness_mini / 2.f });
                 connection.setRotation(sf::degrees(angle));
                 connection.setFillColor(sf::Color(80, 80, 80, minimapConfig.connection_color_alpha));
-                
+
                 window.draw(connection);
             }
         }
-        
+
         // Desenha a sala
         sf::RectangleShape roomRect;
         roomRect.setSize({ roomSize, roomSize });
         roomRect.setOrigin({ roomSize / 2.f, roomSize / 2.f });
         roomRect.setPosition(roomPosition);
-        
-        // Define a cor baseada no estado da sala
+
+        // MODIFICADO: Define a cor baseada no estado E tipo da sala
         if (visitedRoomID == currentRoomID) {
-            // Sala atual - vermelho
+            // Sala atual - SEMPRE vermelha (independente do tipo)
             roomRect.setFillColor(sf::Color(255, 0, 0, 255));
             roomRect.setOutlineColor(sf::Color(255, 255, 255, 255));
             roomRect.setOutlineThickness(minimapConfig.current_room_outline_thickness);
         }
-        else if (room.isCleared()) {
-            // Sala limpa - branco
-            roomRect.setFillColor(sf::Color(255, 255, 255, 255));
-            roomRect.setOutlineColor(sf::Color(200, 200, 200, 200));
-            roomRect.setOutlineThickness(minimapConfig.cleared_room_outline_thickness);
-        }
         else {
-            // Sala visitada mas não limpa - cinzenta
-            roomRect.setFillColor(sf::Color(150, 150, 150, 255));
-            roomRect.setOutlineColor(sf::Color(200, 200, 200, 200));
-            roomRect.setOutlineThickness(minimapConfig.cleared_room_outline_thickness);
+            // Salas visitadas - cor baseada no TIPO
+            RoomType roomType = room.getType();
+
+            if (roomType == RoomType::Treasure) {
+                // Treasure Room - AMARELA (sempre, mesmo que limpa)
+                roomRect.setFillColor(sf::Color(255, 215, 0, 255)); // Dourado/Amarelo
+                roomRect.setOutlineColor(sf::Color(200, 200, 0, 200));
+                roomRect.setOutlineThickness(minimapConfig.cleared_room_outline_thickness);
+            }
+            else if (roomType == RoomType::Boss) {
+                // Boss Room - PRETA (sempre, mesmo que limpa)
+                roomRect.setFillColor(sf::Color(0, 0, 0, 255)); // Preto
+                roomRect.setOutlineColor(sf::Color(255, 0, 0, 255)); // Contorno vermelho para destacar
+                roomRect.setOutlineThickness(minimapConfig.cleared_room_outline_thickness);
+            }
+            else if (room.isCleared()) {
+                // Sala normal limpa - branca
+                roomRect.setFillColor(sf::Color(255, 255, 255, 255));
+                roomRect.setOutlineColor(sf::Color(200, 200, 200, 200));
+                roomRect.setOutlineThickness(minimapConfig.cleared_room_outline_thickness);
+            }
+            else {
+                // Sala normal visitada mas não limpa - cinzenta
+                roomRect.setFillColor(sf::Color(150, 150, 150, 255));
+                roomRect.setOutlineColor(sf::Color(200, 200, 200, 200));
+                roomRect.setOutlineThickness(minimapConfig.cleared_room_outline_thickness);
+            }
         }
-        
+
         window.draw(roomRect);
     }
 }

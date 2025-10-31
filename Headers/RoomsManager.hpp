@@ -71,6 +71,10 @@ private:
     // NOVO: Usa o comparador personalizado Vector2iComparator
     std::map<sf::Vector2i, int, Vector2iComparator> coordToRoomID;
 
+    // NOVO: Rastreamento de salas especiais
+    bool bossRoomGenerated = false;
+    bool treasureRoomGenerated = false;
+
     // NOVO: Rastreamento de salas visitadas para o minimapa
     std::set<int> visitedRooms;
 

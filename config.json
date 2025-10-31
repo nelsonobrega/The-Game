@@ -2,12 +2,12 @@
   "player": {
     "stats": {
       "initial_health": 6,
-      "damage": 5,
+   q
       "speed": 350.0,
       "hit_flash_duration": 0.05
     },
     "attack": {
-      "cooldown": 0.5,
+      "cooldown": 0.1,
       "projectile_speed": 650.0,
       "projectile_max_distance": 900.0
     },
@@ -34,7 +34,7 @@
   "demon": {
     "stats": {
       "initial_health": 13,
-      "max_health": 30,
+      "max_health": 60,
       "damage": 1,
       "speed": 150.0
     },
@@ -169,21 +169,21 @@
     },
     "door_boss": {
       "texture_width": 49,
-      "texture_height": 43,
+      "texture_height": 45,
       "frame_start_x": 251,
       "frame_start_y": 0,
       "origin_x": 24.5,
-      "origin_y": 43.0,
+      "origin_y": 44.0,
       "scale_x": 3.0,
       "scale_y": 3.0
     },
     "door_treasure": {
       "texture_width": 49,
-      "texture_height": 38,
-      "frame_start_x": 251,
+      "texture_height": 40,
+      "frame_start_x": 125,
       "frame_start_y": 0,
       "origin_x": 24.5,
-      "origin_y": 17,
+      "origin_y": 39,
       "scale_x": 3.0,
       "scale_y": 3.0
     },
@@ -222,3 +222,4 @@
       }
     }
   }
+}
