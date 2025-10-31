@@ -2,12 +2,12 @@
   "player": {
     "stats": {
       "initial_health": 6,
-      "damage": 1,
+      "damage": 5,
       "speed": 350.0,
       "hit_flash_duration": 0.05
     },
     "attack": {
-      "cooldown": 0.7,
+      "cooldown": 0.5,
       "projectile_speed": 650.0,
       "projectile_max_distance": 900.0
     },
@@ -68,7 +68,7 @@
       "initial_health": 20,
       "damage": 1,
       "speed": 310.0,
-      "spawn_chance_percent": 30
+      "spawn_chance_percent": 100
     },
     "movement": {
       "center_pull_weight": 0.2,
@@ -76,7 +76,7 @@
       "lateral_bias_strength": 0.5
     },
     "heal": {
-      "cooldown": 6.0,
+      "cooldown": 8.0,
       "amount": 10
     },
     "visual": {
@@ -104,17 +104,23 @@
       "width": 1493.34,
       "height": 720.40
     },
-"dungeon": {
-  "min_rooms": 6,
-  "max_rooms": 16,
-  "transition_duration": 0.49,
-  "player_spawn_offset": 60.0,
-  "door_offset": 1.0,
-  "extra_door_chances": [
-    { "is_safe_zone": true, "chances": [100, 90, 70, 50, 20] },
-    { "is_safe_zone": false, "chances": [70, 20, 10, 5, 1] }
-  ]
-},
+    "dungeon": {
+      "min_rooms": 6,
+      "max_rooms": 16,
+      "transition_duration": 0.49,
+      "player_spawn_offset": 60.0,
+      "door_offset": 1.0,
+      "extra_door_chances": [
+        {
+          "is_safe_zone": true,
+          "chances": [ 100, 90, 70, 50, 20 ]
+        },
+        {
+          "is_safe_zone": false,
+          "chances": [ 70, 20, 10, 5, 1 ]
+        }
+      ]
+    },
     "ui": {
       "max_hearts": 3,
       "heart_spacing": 67.0,
@@ -153,47 +159,66 @@
       "background_scale_x": 1.25,
       "background_scale_y": 1.05571847
     },
-    "door_visual": {
+    "door_normal": {
       "texture_width": 48,
       "texture_height": 32,
       "origin_x": 24.0,
       "origin_y": 31.0,
       "scale_x": 3.0,
       "scale_y": 3.0
-    }
-  },
-  "corners": {
-    "option_a": {
-      "x": 0,
-      "y": 0,
-      "width": 234,
-      "height": 156
     },
-    "option_b": {
-      "x": 0,
-      "y": 156,
-      "width": 234,
-      "height": 156
+    "door_boss": {
+      "texture_width": 49,
+      "texture_height": 43,
+      "frame_start_x": 251,
+      "frame_start_y": 0,
+      "origin_x": 24.5,
+      "origin_y": 43.0,
+      "scale_x": 3.0,
+      "scale_y": 3.0
     },
-    "option_c": {
-      "x": 234,
-      "y": 0,
-      "width": 234,
-      "height": 156
-    }
-  },
-  "projectile_textures": {
-    "isaac_tear": {
-      "x": 8,
-      "y": 39,
-      "width": 16,
-      "height": 16
+    "door_treasure": {
+      "texture_width": 49,
+      "texture_height": 38,
+      "frame_start_x": 251,
+      "frame_start_y": 0,
+      "origin_x": 24.5,
+      "origin_y": 17,
+      "scale_x": 3.0,
+      "scale_y": 3.0
     },
-    "demon_tear": {
-      "x": 8,
-      "y": 103,
-      "width": 16,
-      "height": 16
+    "corners": {
+      "option_a": {
+        "x": 0,
+        "y": 0,
+        "width": 234,
+        "height": 156
+      },
+      "option_b": {
+        "x": 0,
+        "y": 156,
+        "width": 234,
+        "height": 156
+      },
+      "option_c": {
+        "x": 234,
+        "y": 0,
+        "width": 234,
+        "height": 156
+      }
+    },
+    "projectile_textures": {
+      "isaac_tear": {
+        "x": 8,
+        "y": 39,
+        "width": 16,
+        "height": 16
+      },
+      "demon_tear": {
+        "x": 8,
+        "y": 103,
+        "width": 16,
+        "height": 16
+      }
     }
   }
-}

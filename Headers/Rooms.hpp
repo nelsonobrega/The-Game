@@ -39,7 +39,7 @@ struct Door {
 // Tipo de sala
 enum class RoomType {
     SafeZone,       // Primeira sala, sem inimigos
-    Combat,         // Sala com inimigos
+    Normal,         // Sala com inimigos
     Boss,           // Sala de boss (futuro)
     Treasure        // Sala de tesouro (futuro)
 };

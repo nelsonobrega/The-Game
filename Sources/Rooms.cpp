@@ -25,7 +25,7 @@ void Room::addDoor(DoorDirection direction, sf::Texture& doorTexture) {
     door.sprite.emplace(doorTexture);
 
     // 2. Acede ao sprite interno usando o operador ->
-    const auto& doorConfig = ConfigManager::getInstance().getConfig().game.door_visual;
+    const auto& doorConfig = ConfigManager::getInstance().getConfig().game.door_normal;
     door.sprite->setTextureRect(sf::IntRect({ 0, 0 }, { doorConfig.texture_width, doorConfig.texture_height }));
 
     // Origem: 24.f (Centro X) e 31.f (Base - 1px para ficar no limite)
@@ -123,7 +123,7 @@ void Room::spawnEnemies(
     }
 
     // Demon sempre spawna em salas de combate
-    if (type == RoomType::Combat) {
+    if (type == RoomType::Normal) {
         demon.emplace(
             demonWalkDown,
             demonWalkUp,

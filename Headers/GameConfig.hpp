@@ -264,7 +264,7 @@ struct GameConfig_General {
     DungeonConfig dungeon;
     UIConfig ui;
     MenuConfig menu;
-    DoorVisualConfig door_visual;
+    DoorVisualConfig door_normal;
     MinimapConfig minimap;
 };
 
@@ -563,7 +563,7 @@ inline void from_json(const json& j, GameConfig_General& c) {
     if (j.contains("dungeon")) c.dungeon = j["dungeon"].get<DungeonConfig>();
     if (j.contains("ui")) c.ui = j["ui"].get<UIConfig>();
     if (j.contains("menu")) c.menu = j["menu"].get<MenuConfig>();
-    if (j.contains("door_visual")) c.door_visual = j["door_visual"].get<DoorVisualConfig>();
+    if (j.contains("door_normal")) c.door_normal = j["door_normal"].get<DoorVisualConfig>();
     if (j.contains("minimap")) c.minimap = j["minimap"].get<MinimapConfig>();
 }
 

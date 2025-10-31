@@ -97,7 +97,7 @@ void RoomManager::generateDungeon(int numRooms) {
                 int newRoomID = nextAvailableRoomID;
 
                 // Cria a nova sala
-                createRoom(newRoomID, RoomType::Combat);
+                createRoom(newRoomID, RoomType::Normal);
                 coordToRoomID[nextCoord] = newRoomID;
 
                 // Conecta as duas salas
