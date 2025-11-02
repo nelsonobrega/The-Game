@@ -8,10 +8,10 @@
 #include "ConfigManager.hpp"
 #include "Utils.hpp" // Incluir Utils para acesso a checkCollision, calculateAngle e M_PI
 
-// *** REMOVIDO: O bloco namespace Constants::PI_F foi removido para evitar redefiniÁ„o.
-// A constante M_PI j· est· disponÌvel via Utils.hpp.
+// *** REMOVIDO: O bloco namespace Constants::PI_F foi removido para evitar redefini√ß√£o.
+// A constante M_PI j√° est√° dispon√≠vel via Utils.hpp.
 
-// Estrutura para os projÈteis do inimigo
+// Estrutura para os proj√©teis do inimigo
 struct EnemyProjectile {
     sf::Sprite sprite;
     sf::Vector2f direction;
@@ -72,6 +72,7 @@ public:
     void update(float deltaTime, sf::Vector2f playerPosition, const sf::FloatRect& gameBounds) override;
 
     void heal(int amount);
+    void setHealth(int newHealth); // NOVO: Para definir a vida do Boss
     void setProjectileTextureRect(const sf::IntRect& rect);
 
 private:
@@ -127,6 +128,6 @@ private:
     void handleAnimation(float deltaTime);
 };
 
-// *** REMOVIDO: A declaraÁ„o de calculateAngle foi removida, pois est· em Utils.hpp.
+// *** REMOVIDO: A declara√ß√£o de calculateAngle foi removida, pois est√° em Utils.hpp.
 
 #endif // ENEMY_HPP

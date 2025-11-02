@@ -1,29 +1,35 @@
-#include "Game.hpp"
+ï»¿#include "Game.hpp"
 #include "Utils.hpp"
-#include "ConfigManager.hpp" // Adicionado para carregar a configuração
+#include "ConfigManager.hpp" 
 #include <iostream>
-#include <cstdlib> 
-#include <ctime>   
+#include <cstdlib>
+#include <ctime>
+#include <algorithm>
 
-// --- Definições de Texturas de Canto (3 Opções Aleatórias) ---
-// Estas constantes são locais e não causam redefinição.
-const sf::IntRect TEXTURE_OPTION_A = { {0, 0 }, { 234, 156 } };
-const sf::IntRect TEXTURE_OPTION_B = { {0, 156 }, {234, 155} };
-const sf::IntRect TEXTURE_OPTION_C = { {234, 0}, {234, 155} };
+// --- FunÃ§Ã£o Auxiliar para Aleatorizar a Textura ---
+sf::IntRect getRandomCornerTexture(const GameConfig& config) {
+    const auto& cornerConfig = config.corners;
 
-// --- Definições dos Recortes de Projéteis (Valores Hardcoded) ---
-const sf::IntRect ISAAC_TEAR_RECT = { {8, 39}, {16, 16} };
-const sf::IntRect DEMON_TEAR_RECT = { {8, 103}, {16, 16} };
+    const sf::IntRect TEXTURE_OPTION_A(
+        sf::Vector2i(cornerConfig.option_a.x, cornerConfig.option_a.y),
+        sf::Vector2i(cornerConfig.option_a.width, cornerConfig.option_a.height)
+    );
+    const sf::IntRect TEXTURE_OPTION_B(
+        sf::Vector2i(cornerConfig.option_b.x, cornerConfig.option_b.y),
+        sf::Vector2i(cornerConfig.option_b.width, cornerConfig.option_b.height)
+    );
+    const sf::IntRect TEXTURE_OPTION_C(
+        sf::Vector2i(cornerConfig.option_c.x, cornerConfig.option_c.y),
+        sf::Vector2i(cornerConfig.option_c.width, cornerConfig.option_c.height)
+    );
 
-// --- Função Auxiliar para Aleatorizar a Textura ---
-sf::IntRect getRandomCornerTexture() {
     int choice = rand() % 3;
     if (choice == 0) return TEXTURE_OPTION_A;
     else if (choice == 1) return TEXTURE_OPTION_B;
     else return TEXTURE_OPTION_C;
 }
 
-// --- Implementação da Classe Game ---
+// --- ImplementaÃ§Ã£o da Classe Game ---
 
 void Game::loadGameAssets() {
     assets.loadAnimation("I_Down", "Front_Isaac", "F", 9, "V1.png");
@@ -40,6 +46,7 @@ void Game::loadGameAssets() {
 
     assets.loadAnimation("Bishop", "Bishop", "B", 14, ".png");
 
+    assets.loadTexture("Door", "Images/Background/Doors.png");
     assets.loadTexture("HeartF", "Images/UI/Life/Full.png");
     assets.loadTexture("HeartH", "Images/UI/Life/Half.png");
     assets.loadTexture("HeartE", "Images/UI/Life/Empty.png");
@@ -48,27 +55,28 @@ void Game::loadGameAssets() {
 }
 
 Game::Game()
-    : window(sf::VideoMode({ 1920, 1080 }), "Isaac test"),
+    : window(sf::VideoMode(sf::Vector2u(1920, 1080)), "The Game - Isaac Clone"),
     currentState(GameState::menu),
     assets(AssetManager::getInstance())
 {
-    // PASSO CRÍTICO: CARREGAR A CONFIGURAÇÃO ANTES DE USÁ-LA
+    // PASSO 1: CARREGAR CONFIG **PRIMEIRO**
     try {
-        // ATENÇÃO: Verifique o caminho correto do seu ficheiro JSON
         ConfigManager::getInstance().loadConfig("config.json");
         std::cout << "Configuracao carregada com sucesso.\n";
     }
     catch (const std::exception& e) {
         std::cerr << "ERRO FATAL AO CARREGAR CONFIG: " << e.what() << "\n";
-        // Lança exceção para garantir que o programa pare se a config falhar
         throw;
     }
+
+    // PASSO 2: Agora sim podemos usar o config
+    const auto& config = ConfigManager::getInstance().getConfig();
 
     std::srand(std::time(NULL));
 
     loadGameAssets();
 
-    // --- CONFIGURAÇÃO DO ISAAC ---
+    // --- CONFIGURAÃ‡ÃƒO DO ISAAC ---
     Isaac.emplace(
         assets.getAnimationSet("I_Down"),
         assets.getTexture("TearAtlas"),
@@ -78,90 +86,90 @@ Game::Game()
     );
 
     if (Isaac) {
+        // Define o rect do projÃ©til do Isaac
+        const auto& projConfig = config.projectile_textures.isaac_tear;
+        const sf::IntRect ISAAC_TEAR_RECT(
+            sf::Vector2i(projConfig.x, projConfig.y),
+            sf::Vector2i(projConfig.width, projConfig.height)
+        );
         Isaac->setProjectileTextureRect(ISAAC_TEAR_RECT);
+        Isaac->setPosition({ (float)config.game.window_width / 2.f, (float)config.game.window_height / 2.f });
     }
 
-    // --- CONFIGURAÇÃO DO DEMON ---
-    Enemy.emplace(
-        assets.getAnimationSet("D_Down"), assets.getAnimationSet("D_Up"),
-        assets.getAnimationSet("D_Left"), assets.getAnimationSet("D_Right"),
-        assets.getTexture("TearAtlas")
-    );
-
-    if (Enemy) {
-        Enemy->setProjectileTextureRect(DEMON_TEAR_RECT);
-        std::cout << "Demon inicializado com novo recorte de projetil.\n";
-    }
-
-    // --- CONFIGURAÇÃO DO BISHOP ---
-    eBishop.emplace(assets.getAnimationSet("Bishop"));
-
-    // Inicializa sprites opcionais para corações
+    // Inicializa sprites opcionais para coraÃ§Ãµes
     heartSpriteF.emplace(assets.getTexture("HeartF"));
     heartSpriteH.emplace(assets.getTexture("HeartH"));
     heartSpriteE.emplace(assets.getTexture("HeartE"));
 
     setupMenu();
 
-    // Inicializar sprites opcionais com as texturas carregadas
+    // Inicializar sprites opcionais com as texturas carregadas (cantos)
     cornerTL.emplace(assets.getTexture("BasementCorner"));
     cornerTR.emplace(assets.getTexture("BasementCorner"));
     cornerBL.emplace(assets.getTexture("BasementCorner"));
     cornerBR.emplace(assets.getTexture("BasementCorner"));
 
-    // Setup basement corners (COM ALEATORIEDADE E 3 OPÇÕES)
-    float scaleX = 960.f / 234.f;
-    float scaleY = 540.f / 156.f;
+    // Setup basement corners
+    float scaleX = (float)config.game.window_width / 2.f / (float)config.corners.option_a.width;
+    float scaleY = (float)config.game.window_height / 2.f / (float)config.corners.option_a.height;
 
     // Canto Superior Esquerdo (TL)
-    cornerTL->setTextureRect(getRandomCornerTexture());
+    cornerTL->setTextureRect(getRandomCornerTexture(config));
     cornerTL->setPosition({ 0.f, 0.f });
     cornerTL->setScale({ scaleX, scaleY });
 
     // Canto Superior Direito (TR)
-    cornerTR->setTextureRect(getRandomCornerTexture());
-    cornerTR->setPosition({ 1920.f, 0.f });
+    cornerTR->setTextureRect(getRandomCornerTexture(config));
+    cornerTR->setPosition({ (float)config.game.window_width, 0.f });
     cornerTR->setScale({ -scaleX, scaleY });
 
     // Canto Inferior Esquerdo (BL)
-    cornerBL->setTextureRect(getRandomCornerTexture());
-    cornerBL->setPosition({ 0.f, 1080.f });
-    cornerBL->setScale({ scaleX, -scaleY - 0.1f });
+    cornerBL->setTextureRect(getRandomCornerTexture(config));
+    cornerBL->setPosition({ 0.f, (float)config.game.window_height });
+    cornerBL->setScale({ scaleX, -scaleY });
 
     // Canto Inferior Direito (BR)
-    cornerBR->setTextureRect(getRandomCornerTexture());
-    cornerBR->setPosition({ 1920.f, 1080.f });
-    cornerBR->setScale({ -scaleX, -scaleY - 0.1f });
+    cornerBR->setTextureRect(getRandomCornerTexture(config));
+    cornerBR->setPosition({ (float)config.game.window_width, (float)config.game.window_height });
+    cornerBR->setScale({ -scaleX, -scaleY });
 
     // Define game bounds
-    float left = 213.33f;
-    float top = 179.80f;
-    float width = 1493.34f;
-    float height = 720.40f;
+    gameBounds = sf::FloatRect({ config.game.bounds.left, config.game.bounds.top }, { config.game.bounds.width, config.game.bounds.height });
 
-    gameBounds = sf::FloatRect({ left, top }, { width, height });
+    // --- CONFIGURAÃ‡ÃƒO DO ROOM MANAGER ---
+    roomManager.emplace(assets, gameBounds);
+
+    // Gera nÃºmero aleatÃ³rio de salas entre min e max (lidos da config)
+    int minRooms = config.game.dungeon.min_rooms;
+    int maxRooms = config.game.dungeon.max_rooms;
+    int numRooms = minRooms + (rand() % (maxRooms - minRooms + 1));
+
+    std::cout << "Gerando dungeon com " << numRooms << " salas..." << std::endl;
+    roomManager->generateDungeon(numRooms);
 }
 
 void Game::setupMenu() {
+    const auto& config = ConfigManager::getInstance().getConfig();
+
     if (!playButtonTexture.loadFromFile("Images/playButton.png")) {
         throw std::runtime_error("Failed to load playButton.png");
     }
     playButton.emplace(playButtonTexture);
-    playButton->setPosition({ 150.0f, 170.0f });
-    playButton->setScale(sf::Vector2f(0.5f, 0.5f));
+    playButton->setPosition({ config.game.menu.play_button.position_x, config.game.menu.play_button.position_y });
+    playButton->setScale(sf::Vector2f(config.game.menu.play_button.scale_x, config.game.menu.play_button.scale_y));
 
     if (!exitButtonTexture.loadFromFile("Images/exitButton.png")) {
         throw std::runtime_error("Failed to load exitButton.png");
     }
     exitButton.emplace(exitButtonTexture);
-    exitButton->setPosition({ 150.0f, 750.0f });
-    exitButton->setScale(sf::Vector2f(0.4900965f, 0.537958f));
+    exitButton->setPosition({ config.game.menu.exit_button.position_x, config.game.menu.exit_button.position_y });
+    exitButton->setScale(sf::Vector2f(config.game.menu.exit_button.scale_x, config.game.menu.exit_button.scale_y));
 
     if (!menuTexture.loadFromFile("Images/backgroundMenu.png")) {
         throw std::runtime_error("Failed to load backgroundMenu.png");
     }
     menuGround.emplace(menuTexture);
-    menuGround->setScale({ 1.25f, 1.05571847f });
+    menuGround->setScale({ config.game.menu.background_scale_x, config.game.menu.background_scale_y });
 }
 
 void Game::run() {
@@ -198,8 +206,9 @@ void Game::run() {
     }
 }
 
+// CORRIGIDO: Eventos no SFML 3.0
 void Game::processEvents() {
-    while (const std::optional event = window.pollEvent()) {
+    while (std::optional<sf::Event> event = window.pollEvent()) {
         if (event->is<sf::Event::Closed>()) {
             window.close();
         }
@@ -207,33 +216,58 @@ void Game::processEvents() {
 }
 
 void Game::update(float deltaTime) {
-    if (Isaac) Isaac->update(deltaTime, gameBounds);
-    if (Enemy) Enemy->update(deltaTime, Isaac->getPosition(), gameBounds);
-    if (eBishop) eBishop->update(deltaTime, Isaac->getPosition(), gameBounds);
+    if (!Isaac || !roomManager) return;
 
-    if (eBishop && eBishop->shouldHealDemon()) {
-        if (Enemy && Enemy->getHealth() > 0) {
-            Enemy->heal(3);
-            eBishop->resetHealFlag();
-        }
+    const auto& config = ConfigManager::getInstance().getConfig();
+    sf::Vector2f playerPosition = Isaac->getPosition();
+
+    // 1. LÃ³gica de TransiÃ§Ã£o (TEM PRIORIDADE)
+    if (roomManager->isTransitioning()) {
+        roomManager->updateTransition(deltaTime, playerPosition);
+        Isaac->setPosition(playerPosition);
+        Isaac->setSpeedMultiplier(0.f);
+        return;
+    }
+    Isaac->setSpeedMultiplier(1.f);
+
+    // 2. AtualizaÃ§Ã£o do Player (Movimento, Tiro)
+    Isaac->update(deltaTime, gameBounds);
+
+    // 3. AtualizaÃ§Ã£o da Sala (Inimigos, Cura, Checagem de Limpeza)
+    roomManager->update(deltaTime, Isaac->getPosition());
+
+    // 4. Checagem de Porta
+    DoorDirection doorHit = roomManager->checkPlayerAtDoor(Isaac->getGlobalBounds());
+    if (doorHit != DoorDirection::None) {
+        roomManager->requestTransition(doorHit);
+        return;
     }
 
-    if (Isaac) {
-        auto& isaacProjectiles = Isaac->getProjectiles();
+    // --- LÃ³gica de ColisÃ£o de ProjÃ©teis ---
 
+    auto& isaacProjectiles = Isaac->getProjectiles();
+    Room* currentRoom = roomManager->getCurrentRoom();
+
+    if (currentRoom) {
+        auto& demon = currentRoom->getDemon();
+        auto& bishop = currentRoom->getBishop();
+
+        // ColisÃ£o: ProjÃ©teis do Isaac vs. Inimigos
         for (auto it = isaacProjectiles.begin(); it != isaacProjectiles.end();) {
             sf::FloatRect projBounds = it->sprite.getGlobalBounds();
             bool projectile_hit = false;
 
-            // 1. COLISÃO COM O DEMON (Enemy) - USANDO FUNÇÃO GLOBAL checkCollision (de Utils.hpp)
-            if (Enemy && Enemy->getHealth() > 0 && checkCollision(projBounds, Enemy->getGlobalBounds())) {
-                Enemy->takeDamage(1);
+            int playerDamage = config.player.stats.damage;
+
+            // 1. COLISÃƒO COM O DEMON
+            if (demon.has_value() && demon->getHealth() > 0 && checkCollision(projBounds, demon->getGlobalBounds())) {
+                demon->takeDamage(playerDamage);
                 projectile_hit = true;
             }
 
-            // 2. COLISÃO COM O BISHOP (eBishop) - USANDO FUNÇÃO GLOBAL checkCollision (de Utils.hpp)
-            if (eBishop && eBishop->getHealth() > 0 && checkCollision(projBounds, eBishop->getGlobalBounds())) {
-                eBishop->takeDamage(1);
+            // 2. COLISÃƒO COM O BISHOP
+            if (bishop.has_value() && bishop->getHealth() > 0 && checkCollision(projBounds, bishop->getGlobalBounds())) {
+                bishop->takeDamage(playerDamage);
                 projectile_hit = true;
             }
 
@@ -244,28 +278,25 @@ void Game::update(float deltaTime) {
                 ++it;
             }
         }
-    }
 
-    // Colisão dos projéteis inimigos (Demon) com o Player
-    if (Isaac && Enemy) {
-        auto& enemyProjectiles = Enemy->getProjectiles();
-        for (auto it = enemyProjectiles.begin(); it != enemyProjectiles.end();) {
-            sf::FloatRect projBounds = it->sprite.getGlobalBounds();
-            // USANDO FUNÇÃO GLOBAL checkCollision (de Utils.hpp)
-            if (Isaac->getHealth() > 0 && checkCollision(projBounds, Isaac->getGlobalBounds())) {
-                Isaac->takeDamage(1);
-                it = enemyProjectiles.erase(it);
-            }
-            else {
-                ++it;
+        // ColisÃ£o: ProjÃ©teis Inimigos (Demon) vs. Player
+        if (demon.has_value() && demon->getHealth() > 0) {
+            auto& enemyProjectiles = demon->getProjectiles();
+            for (auto it = enemyProjectiles.begin(); it != enemyProjectiles.end();) {
+                sf::FloatRect projBounds = it->sprite.getGlobalBounds();
+
+                if (Isaac->getHealth() > 0 && checkCollision(projBounds, Isaac->getGlobalBounds())) {
+                    Isaac->takeDamage(config.demon.stats.damage);
+                    it = enemyProjectiles.erase(it);
+                }
+                else {
+                    ++it;
+                }
             }
         }
     }
 
-    if ((Enemy && Enemy->getHealth() <= 0) && (eBishop && eBishop->getHealth() <= 0)) {
-        // Lógica de fim de jogo/sala
-    }
-
+    // LÃ³gica de morte do Isaac
     if (Isaac && Isaac->getHealth() <= 0) {
         window.close();
     }
@@ -274,26 +305,37 @@ void Game::update(float deltaTime) {
 void Game::render() {
     window.clear();
 
-    // Desenho dos Cantos da Sala
+    const auto& config = ConfigManager::getInstance().getConfig();
+
+    // Desenho dos Cantos da Sala (Background)
     if (cornerTL) window.draw(*cornerTL);
     if (cornerTR) window.draw(*cornerTR);
     if (cornerBL) window.draw(*cornerBL);
     if (cornerBR) window.draw(*cornerBR);
 
+    // --- Desenho da Sala ---
+    if (roomManager) {
+        roomManager->draw(window);
+    }
 
+    // O Player deve ser desenhado sempre acima dos inimigos
+    if (Isaac) Isaac->draw(window);
+
+    // --- Desenho da UI (SaÃºde) ---
     if (!Isaac) return;
 
     int currentHealth = Isaac->getHealth();
-    float xPosition = 200.f;
-    float yPosition = 90.f;
-    const int maxHearts = 3;
-    const float heartSpacing = 67.f;
+    const auto& uiConfig = config.game.ui;
+    float xPosition = uiConfig.heart_ui_x;
+    float yPosition = uiConfig.heart_ui_y;
+    const int maxHearts = uiConfig.max_hearts;
+    const float heartSpacing = uiConfig.heart_spacing;
 
     if (!heartSpriteF || !heartSpriteH || !heartSpriteE) return;
 
-    heartSpriteF->setScale({ 3.f, 3.f });
-    heartSpriteH->setScale({ 3.f, 3.f });
-    heartSpriteE->setScale({ 3.f, 3.f });
+    heartSpriteF->setScale({ uiConfig.heart_scale, uiConfig.heart_scale });
+    heartSpriteH->setScale({ uiConfig.heart_scale, uiConfig.heart_scale });
+    heartSpriteE->setScale({ uiConfig.heart_scale, uiConfig.heart_scale });
 
     for (int i = 0; i < maxHearts; ++i) {
         const sf::Sprite* spriteToDraw;
@@ -307,9 +349,15 @@ void Game::render() {
         currentHealth -= 2;
     }
 
-    if (Enemy) Enemy->draw(window);
-    Isaac->draw(window);
-    if (eBishop) eBishop->draw(window);
+    // --- Desenho do Minimapa ---
+    if (roomManager) {
+        roomManager->drawMiniMap(window);
+    }
+
+    // --- Desenho do Overlay de TransiÃ§Ã£o (DEVE SER O ÃšLTIMO) ---
+    if (roomManager) {
+        roomManager->drawTransitionOverlay(window);
+    }
 
     window.display();
 }

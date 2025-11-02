@@ -6,9 +6,7 @@
 #include <optional>
 #include <iostream>
 #include "ConfigManager.hpp" 
-#include "Utils.hpp" // Incluir Utils para M_PI e outras funções
-
-// *** NENHUMA DEFINIÇÃO DE CONSTANTE PI AQUI ***
+#include "Utils.hpp" 
 
 struct Projectile {
     sf::Sprite sprite;
@@ -24,6 +22,11 @@ public:
         std::vector<sf::Texture>& walkUpTextures,
         std::vector<sf::Texture>& walkLeftTextures,
         std::vector<sf::Texture>& walkRightTextures);
+
+    // --- NOVOS MÉTODOS PARA O ROOMMANAGER ---
+    void setPosition(const sf::Vector2f& newPosition);
+    void setSpeedMultiplier(float multiplier);
+    // ----------------------------------------
 
     void setProjectileTextureRect(const sf::IntRect& rect);
 
@@ -43,16 +46,19 @@ public:
 private:
     std::optional<sf::Sprite> Isaac;
 
-    // VARIÁVEIS CARREGADAS DA CONFIGURAÇÃO (Sem problemas)
+    // VARIÁVEIS CARREGADAS DA CONFIGURAÇÃO
     int health = 0;
-    float speed = 0.f;
+    float speed = 0.f; // Velocidade base
     float isaacHitSpeed = 0.f;
     float maxHitDistance = 0.f;
     sf::Time hitFlashDuration;
 
+    // NOVO: Multiplicador de velocidade (1.0 = normal, 0.0 = parado)
+    float speedMultiplier_ = 1.0f;
+
     // VARIÁVEIS RESTAURADAS COMO CONSTANTES
     const float frame_duration = 0.1f;
-    const sf::Time cooldownTime = sf::seconds(0.3f);
+    sf::Time cooldownTime;
     const int frames_vertical = 9;
     const int frames_horizontal = 6;
 

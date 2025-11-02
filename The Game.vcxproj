@@ -144,6 +144,8 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Sources\Rooms.cpp" />
+    <ClCompile Include="Sources\RoomsManager.cpp" />
     <ClCompile Include="Sources\Utils.cpp" />
     <ClCompile Include="The Game.cpp" />
   </ItemGroup>
@@ -159,11 +161,12 @@
     </ClInclude>
     <ClInclude Include="Headers\Game.hpp" />
     <ClInclude Include="Headers\GameConfig.hpp" />
-    <ClInclude Include="Headers\nlohmann\json.hpp" />
     <ClInclude Include="Headers\player.hpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
     </ClInclude>
+    <ClInclude Include="Headers\Rooms.hpp" />
+    <ClInclude Include="Headers\RoomsManager.hpp" />
     <ClInclude Include="Headers\Utils.hpp" />
   </ItemGroup>
   <ItemGroup>
