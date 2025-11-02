@@ -5,6 +5,7 @@
 #include "player.hpp"
 #include "enemy.hpp"
 #include "AssetManager.hpp"
+#include "RoomsManager.hpp" // NOVO: Incluir o RoomsManager
 #include <optional>
 
 enum class GameState {
@@ -46,10 +47,13 @@ private:
     std::optional<sf::Sprite> cornerBL;
     std::optional<sf::Sprite> cornerBR;
 
-    // Game objects opcionais para evitar erros de construtor padrão e operador de atribuição
+    // NOVO: O RoomManager agora gere todas as salas e inimigos
+    std::optional<RoomManager> roomManager;
+
+    // Game object opcional para o player
     std::optional<Player_ALL> Isaac;
-    std::optional<Demon_ALL> Enemy;
-    std::optional<Bishop_ALL> eBishop;
+
+    // REMOVIDO: Demon e Bishop (agora geridos pelo RoomManager)
 
     // Sprites opcionais para corações de vida
     std::optional<sf::Sprite> heartSpriteF;
