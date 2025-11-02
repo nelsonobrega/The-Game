@@ -2,7 +2,6 @@
   "player": {
     "stats": {
       "initial_health": 6,
-   q
       "speed": 350.0,
       "hit_flash_duration": 0.05
     },
