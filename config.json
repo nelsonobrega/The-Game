@@ -32,14 +32,14 @@
   },
   "demon": {
     "stats": {
-      "initial_health": 13,
+      "initial_health": 0,
       "max_health": 60,
       "damage": 1,
       "speed": 150.0
     },
     "attack": {
-      "fire_cooldown": 1.0,
-      "attack_delay": 0.2,
+      "fire_cooldown": 1.4,
+      "attack_delay": 0.1,
       "projectile_count": 3,
       "projectile_spread": 20.0,
       "projectile_speed": 700.0,
@@ -64,8 +64,8 @@
   },
   "bishop": {
     "stats": {
-      "initial_health": 20,
-      "damage": 1,
+      "initial_health": 1,
+      "damage": 0,
       "speed": 310.0,
       "spawn_chance_percent": 100
     },
@@ -104,11 +104,12 @@
       "height": 720.40
     },
     "dungeon": {
-      "min_rooms": 6,
-      "max_rooms": 16,
+      "min_rooms": 3,
+      "max_rooms": 6,
       "transition_duration": 0.49,
       "player_spawn_offset": 60.0,
       "door_offset": 1.0,
+      "door_animation_duration": 0.5,
       "extra_door_chances": [
         {
           "is_safe_zone": true,
@@ -164,7 +165,19 @@
       "origin_x": 24.0,
       "origin_y": 31.0,
       "scale_x": 3.0,
-      "scale_y": 3.0
+      "scale_y": 3.0,
+      "left_half_x": 11,
+      "left_half_y": 55,
+      "left_half_width": 14,
+      "left_half_height": 23,
+      "right_half_x": 88,
+      "right_half_y": 55,
+      "right_half_width": 14,
+      "right_half_height": 23,
+      "passage_x": 76,
+      "passage_y": 7,
+      "passage_width": 25,
+      "passage_height": 23
     },
     "door_boss": {
       "texture_width": 49,
@@ -174,7 +187,19 @@
       "origin_x": 24.5,
       "origin_y": 44.0,
       "scale_x": 3.0,
-      "scale_y": 3.0
+      "scale_y": 3.0,
+      "left_half_x": 262,
+      "left_half_y": 63,
+      "left_half_width": 14,
+      "left_half_height": 23,
+      "right_half_x": 339,
+      "right_half_y": 63,
+      "right_half_width": 14,
+      "right_half_height": 23,
+      "passage_x": 327,
+      "passage_y": 15,
+      "passage_width": 25,
+      "passage_height": 23
     },
     "door_treasure": {
       "texture_width": 49,
@@ -184,7 +209,19 @@
       "origin_x": 24.5,
       "origin_y": 39,
       "scale_x": 3.0,
-      "scale_y": 3.0
+      "scale_y": 3.0,
+      "left_half_x": 136,
+      "left_half_y": 60,
+      "left_half_width": 14,
+      "left_half_height": 23,
+      "right_half_x": 213,
+      "right_half_y": 60,
+      "right_half_width": 14,
+      "right_half_height": 23,
+      "passage_x": 201,
+      "passage_y": 12,
+      "passage_width": 25,
+      "passage_height": 23
     },
     "corners": {
       "option_a": {

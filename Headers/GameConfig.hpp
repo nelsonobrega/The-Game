@@ -196,6 +196,7 @@ struct DungeonConfig {
     float transition_duration = 0.49f;
     float player_spawn_offset = 60.0f;
     float door_offset = 1.0f;
+    float door_animation_duration = 0.5f;
 
     struct ExtraDoorChance {
         bool is_safe_zone = false;
@@ -232,12 +233,25 @@ struct MenuConfig {
 struct DoorVisualConfig {
     int texture_width = 48;
     int texture_height = 32;
-    int frame_start_x = 0;  // NOVO
-    int frame_start_y = 0;  // NOVO
+    int frame_start_x = 0;  // Frame da porta aberta (para compatibilidade)
+    int frame_start_y = 0;  // Frame da porta aberta (para compatibilidade)
     float origin_x = 24.0f;
     float origin_y = 31.0f;
     float scale_x = 3.0f;
     float scale_y = 3.0f;
+    // Animação de portas
+    int left_half_x = 0;
+    int left_half_y = 0;
+    int left_half_width = 14;
+    int left_half_height = 23;
+    int right_half_x = 0;
+    int right_half_y = 0;
+    int right_half_width = 14;
+    int right_half_height = 23;
+    int passage_x = 0;
+    int passage_y = 0;
+    int passage_width = 25;
+    int passage_height = 23;
 };
 
 // Minimap Config
@@ -500,6 +514,7 @@ inline void from_json(const json& j, DungeonConfig& c) {
     c.transition_duration = j.value("transition_duration", 0.49f);
     c.player_spawn_offset = j.value("player_spawn_offset", 60.0f);
     c.door_offset = j.value("door_offset", 1.0f);
+    c.door_animation_duration = j.value("door_animation_duration", 0.5f);
     if (j.contains("extra_door_chances") && j["extra_door_chances"].is_array()) {
         c.extra_door_chances = j["extra_door_chances"].get<std::vector<DungeonConfig::ExtraDoorChance>>();
     }
@@ -540,6 +555,19 @@ inline void from_json(const json& j, DoorVisualConfig& c) {
     c.origin_y = j.value("origin_y", 31.0f);
     c.scale_x = j.value("scale_x", 3.0f);
     c.scale_y = j.value("scale_y", 3.0f);
+    // Animação
+    c.left_half_x = j.value("left_half_x", 0);
+    c.left_half_y = j.value("left_half_y", 0);
+    c.left_half_width = j.value("left_half_width", 14);
+    c.left_half_height = j.value("left_half_height", 23);
+    c.right_half_x = j.value("right_half_x", 0);
+    c.right_half_y = j.value("right_half_y", 0);
+    c.right_half_width = j.value("right_half_width", 14);
+    c.right_half_height = j.value("right_half_height", 23);
+    c.passage_x = j.value("passage_x", 0);
+    c.passage_y = j.value("passage_y", 0);
+    c.passage_width = j.value("passage_width", 25);
+    c.passage_height = j.value("passage_height", 23);
 }
 
 // Minimap
