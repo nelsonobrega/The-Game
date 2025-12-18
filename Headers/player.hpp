@@ -53,6 +53,9 @@ private:
     float maxHitDistance = 0.f;
     sf::Time hitFlashDuration;
 
+    // Intervalo mínimo entre aplicações de dano (permite múltiplos projéteis)
+    sf::Time minDamageInterval = sf::seconds(0.02f);
+
     // NOVO: Multiplicador de velocidade (1.0 = normal, 0.0 = parado)
     float speedMultiplier_ = 1.0f;
 
