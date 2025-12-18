@@ -31,7 +31,7 @@ public:
             std::ifstream file(filepath);
 
             if (!file.is_open()) {
-                std::cerr << "❌ ERRO: Não foi possível abrir '" << filepath << "'" << std::endl;
+                std::cerr << "ERRO: Não foi possível abrir '" << filepath << "'" << std::endl;
                 std::cerr << "   Usando valores padrão..." << std::endl;
                 config = GameConfig();  // Usa defaults das structs
                 loaded = true;
@@ -43,14 +43,14 @@ public:
             currentFilepath = filepath;
             loaded = true;
 
-            std::cout << "✅ Config carregado: " << filepath << std::endl;
+            std::cout << "  Config carregado: " << filepath << std::endl;
             printLoadedConfig();
 
             return true;
 
         }
         catch (const json::parse_error& e) {
-            std::cerr << "❌ ERRO ao parsear JSON: " << e.what() << std::endl;
+            std::cerr << "  ERRO ao parsear JSON: " << e.what() << std::endl;
             std::cerr << "   Linha: " << e.byte << std::endl;
             std::cerr << "   Usando valores padrão..." << std::endl;
             config = GameConfig();
@@ -59,7 +59,7 @@ public:
 
         }
         catch (const json::exception& e) {
-            std::cerr << "❌ ERRO JSON: " << e.what() << std::endl;
+            std::cerr << "  ERRO JSON: " << e.what() << std::endl;
             std::cerr << "   Usando valores padrão..." << std::endl;
             config = GameConfig();
             loaded = true;
@@ -67,7 +67,7 @@ public:
 
         }
         catch (const std::exception& e) {
-            std::cerr << "❌ ERRO: " << e.what() << std::endl;
+            std::cerr << "  ERRO: " << e.what() << std::endl;
             config = GameConfig();
             loaded = true;
             return false;
@@ -77,7 +77,7 @@ public:
     // Get config (const reference)
     const GameConfig& getConfig() const {
         if (!loaded) {
-            throw std::runtime_error("Config não foi carregado! Chama loadConfig() primeiro.");
+            throw std::runtime_error("Config não foi carregada! Chama loadConfig() primeiro.");
         }
         return config;
     }

@@ -32,17 +32,17 @@ sf::IntRect getRandomCornerTexture(const GameConfig& config) {
 // --- Implementação da Classe Game ---
 
 void Game::loadGameAssets() {
-    assets.loadAnimation("I_Down", "Front_Isaac", "F", 9, "V1.png");
-    assets.loadAnimation("I_Up", "Back_Isaac", "B", 9, "V1.png");
-    assets.loadAnimation("I_Left", "Left_Isaac", "L", 6, "V1.png");
-    assets.loadAnimation("I_Right", "Right_Isaac", "R", 6, "V1.png");
+    assets.loadAnimation("I_Down", "Isaac/Front_Isaac", "F", 9, "V1.png");
+    assets.loadAnimation("I_Up", "Isaac/Back_Isaac", "B", 9, "V1.png");
+    assets.loadAnimation("I_Left", "Isaac/Left_Isaac", "L", 6, "V1.png");
+    assets.loadAnimation("I_Right", "Isaac/Right_Isaac", "R", 6, "V1.png");
 
     assets.loadTexture("TearAtlas", "Images/Tears/bulletatlas.png");
 
-    assets.loadAnimation("D_Down", "Front_Demon", "F", 8, "D.png");
-    assets.loadAnimation("D_Up", "Back_Demon", "B", 8, "D.png");
-    assets.loadAnimation("D_Left", "Left_Demon", "L", 8, "D.png");
-    assets.loadAnimation("D_Right", "Right_Demon", "R", 8, "D.png");
+    assets.loadAnimation("D_Down", "Demon/Front_Demon", "F", 8, "D.png");
+    assets.loadAnimation("D_Up", "Demon/Back_Demon", "B", 8, "D.png");
+    assets.loadAnimation("D_Left", "Demon/Left_Demon", "L", 8, "D.png");
+    assets.loadAnimation("D_Right", "Demon/Right_Demon", "R", 8, "D.png");
 
     assets.loadAnimation("Bishop", "Bishop", "B", 14, ".png");
 
@@ -151,21 +151,21 @@ Game::Game()
 void Game::setupMenu() {
     const auto& config = ConfigManager::getInstance().getConfig();
 
-    if (!playButtonTexture.loadFromFile("Images/playButton.png")) {
+    if (!playButtonTexture.loadFromFile("Images/UI/Menu/playButton.png")) {
         throw std::runtime_error("Failed to load playButton.png");
     }
     playButton.emplace(playButtonTexture);
     playButton->setPosition({ config.game.menu.play_button.position_x, config.game.menu.play_button.position_y });
     playButton->setScale(sf::Vector2f(config.game.menu.play_button.scale_x, config.game.menu.play_button.scale_y));
 
-    if (!exitButtonTexture.loadFromFile("Images/exitButton.png")) {
+    if (!exitButtonTexture.loadFromFile("Images/UI/Menu/exitButton.png")) {
         throw std::runtime_error("Failed to load exitButton.png");
     }
     exitButton.emplace(exitButtonTexture);
     exitButton->setPosition({ config.game.menu.exit_button.position_x, config.game.menu.exit_button.position_y });
     exitButton->setScale(sf::Vector2f(config.game.menu.exit_button.scale_x, config.game.menu.exit_button.scale_y));
 
-    if (!menuTexture.loadFromFile("Images/backgroundMenu.png")) {
+    if (!menuTexture.loadFromFile("Images/UI/Menu/backgroundMenu.png")) {
         throw std::runtime_error("Failed to load backgroundMenu.png");
     }
     menuGround.emplace(menuTexture);

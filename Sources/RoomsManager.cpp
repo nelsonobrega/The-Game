@@ -115,7 +115,7 @@ void RoomManager::generateDungeon(int numRooms) {
                 availableCoords.push_back(nextCoord);
 
                 std::cout << "   Room " << parentID << " at (" << parentCoord.x << "," << parentCoord.y
-                    << ") [" << dirToString(dir) << "] → Room " << newRoomID
+                    << ") [" << dirToString(dir) << "] - Room " << newRoomID
                     << " at (" << nextCoord.x << "," << nextCoord.y << ")" << std::endl;
 
                 roomAdded = true;
@@ -227,7 +227,7 @@ void RoomManager::generateDungeon(int numRooms) {
 	                        connectRooms(i, neighborID, extraDir);
 
                         std::cout << "   Room " << i << " at (" << currentCoord.x << "," << currentCoord.y << ") [" << dirToString(extraDir)
-                            << "] ↔ Loop to Room " << neighborID << " at (" << neighborCoord.x << "," << neighborCoord.y << ")" << std::endl;
+                            << "] - Loop to Room " << neighborID << " at (" << neighborCoord.x << "," << neighborCoord.y << ")" << std::endl;
                     }
                 }
             }

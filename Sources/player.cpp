@@ -55,6 +55,19 @@ Player_ALL::Player_ALL(
     maxHitDistance = attack.projectile_max_distance;
     hitFlashDuration = sf::seconds(stats.hit_flash_duration);
 
+    // Carregue o novo campo min_damage_interval (fallback para 0.02s se não existir)
+    if (stats.hit_flash_duration >= 0.0f) {
+        // tenta ler min_damage_interval se presente no JSON
+        try {
+            // Assumindo que ConfigManager retorna estruturas tipadas:
+            if (ConfigManager::getInstance().getConfig().player.stats.min_damage_interval >= 0.0f) {
+                minDamageInterval = sf::seconds(ConfigManager::getInstance().getConfig().player.stats.min_damage_interval);
+            }
+        } catch (...) {
+            // fallback já inicializado em header
+        }
+    }
+
     // ? CORREÇÃO CRUCIAL: Carrega o cooldown do JSON para o membro da classe
     cooldownTime = sf::seconds(attack.cooldown);
 
@@ -84,9 +97,13 @@ void Player_ALL::setProjectileTextureRect(const sf::IntRect& rect) {
 }
 
 void Player_ALL::takeDamage(int amount) {
-    // Implementação de iFrames: Ignora dano se isHit for verdadeiro
+    // Permitir múltiplos hits de projéteis próximos (ex.: Demon que dispara 3),
+    // mas evitar hits absolutamente simultâneos usando um intervalo mínimo.
     if (isHit) {
-        return;
+        // Se ainda estamos dentro do intervalo mínimo entre danos, ignorar
+        if (hitClock.getElapsedTime() < minDamageInterval) {
+            return;
+        }
     }
 
     if (health > 0) {

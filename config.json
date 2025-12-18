@@ -3,10 +3,11 @@
     "stats": {
       "initial_health": 6,
       "speed": 350.0,
-      "hit_flash_duration": 0.05
+      "hit_flash_duration": 0.05,
+      "min_damage_interval": 0.02
     },
     "attack": {
-      "cooldown": 0.1,
+      "cooldown": 0.35,
       "projectile_speed": 650.0,
       "projectile_max_distance": 900.0
     },
@@ -32,18 +33,18 @@
   },
   "demon": {
     "stats": {
-      "initial_health": 0,
-      "max_health": 60,
+      "initial_health": 15,
+      "max_health": 40,
       "damage": 1,
-      "speed": 150.0
+      "speed": 135.0
     },
     "attack": {
       "fire_cooldown": 1.4,
-      "attack_delay": 0.1,
+      "attack_delay": 0.15,
       "projectile_count": 3,
-      "projectile_spread": 20.0,
+      "projectile_spread": 25.0,
       "projectile_speed": 700.0,
-      "projectile_max_distance": 600.0
+      "projectile_max_distance": 550.0
     },
     "visual": {
       "scale": 3.0,
@@ -75,8 +76,8 @@
       "lateral_bias_strength": 0.5
     },
     "heal": {
-      "cooldown": 8.0,
-      "amount": 10
+      "cooldown": 5.0,
+      "amount": 4
     },
     "visual": {
       "scale": 3.0,
@@ -99,13 +100,13 @@
     "window_title": "The Game - Isaac Clone",
     "bounds": {
       "left": 213.33,
-      "top": 179.80,
+      "top": 179.8,
       "width": 1493.34,
-      "height": 720.40
+      "height": 720.4
     },
     "dungeon": {
-      "min_rooms": 3,
-      "max_rooms": 6,
+      "min_rooms": 5,
+      "max_rooms": 12,
       "transition_duration": 0.49,
       "player_spawn_offset": 60.0,
       "door_offset": 1.0,
@@ -113,11 +114,11 @@
       "extra_door_chances": [
         {
           "is_safe_zone": true,
-          "chances": [ 100, 90, 70, 50, 20 ]
+          "chances": [100, 90, 70, 50, 20]
         },
         {
           "is_safe_zone": false,
-          "chances": [ 70, 20, 10, 5, 1 ]
+          "chances": [70, 20, 10, 5, 1]
         }
       ]
     },
@@ -164,8 +165,8 @@
       "texture_height": 32,
       "origin_x": 24.0,
       "origin_y": 31.0,
-      "scale_x": 3.0,
-      "scale_y": 3.0,
+      "scale_x": 3.3,
+      "scale_y": 3.3,
       "left_half_x": 11,
       "left_half_y": 55,
       "left_half_width": 14,
@@ -181,13 +182,13 @@
     },
     "door_boss": {
       "texture_width": 49,
-      "texture_height": 45,
+      "texture_height": 46,
       "frame_start_x": 251,
       "frame_start_y": 0,
       "origin_x": 24.5,
       "origin_y": 44.0,
-      "scale_x": 3.0,
-      "scale_y": 3.0,
+      "scale_x": 3.4,
+      "scale_y": 3.4,
       "left_half_x": 262,
       "left_half_y": 63,
       "left_half_width": 14,
@@ -208,8 +209,8 @@
       "frame_start_y": 0,
       "origin_x": 24.5,
       "origin_y": 39,
-      "scale_x": 3.0,
-      "scale_y": 3.0,
+      "scale_x": 3.5,
+      "scale_y": 3.5,
       "left_half_x": 136,
       "left_half_y": 60,
       "left_half_width": 14,

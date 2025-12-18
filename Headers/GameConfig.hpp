@@ -35,6 +35,7 @@ struct PlayerStatsConfig {
     int damage = 1;
     float speed = 350.0f;
     float hit_flash_duration = 0.1f;
+    float min_damage_interval = 0.02f; // novo: intervalo mínimo entre danos (segundos)
 };
 
 // Player Attack Config
@@ -297,9 +298,9 @@ struct CornerTextureConfig {
         int height = 156;
     };
 
-    Option option_a = { 0, 0, 234, 156 };
-    Option option_b = { 0, 156, 234, 156 };
-    Option option_c = { 234, 0, 234, 156 };
+    Option option_a = { 0, 0, 234, 155 };
+    Option option_b = { 0, 156, 234, 155 };
+    Option option_c = { 234, 0, 234, 155 };
 
     float scale_x = 960.0f / 234.0f;
     float scale_y = 540.0f / 156.0f;
@@ -357,6 +358,7 @@ inline void from_json(const json& j, PlayerStatsConfig& c) {
     c.damage = j.value("damage", 1);
     c.speed = j.value("speed", 350.0f);
     c.hit_flash_duration = j.value("hit_flash_duration", 0.1f);
+    c.min_damage_interval = j.value("min_damage_interval", 0.02f); // lê novo campo
 }
 
 // Player Attack
