@@ -22,6 +22,7 @@ public:
 private:
     void processEvents();
     void update(float deltaTime);
+    void updateRoomVisuals();
     void render();
 
     void loadGameAssets();

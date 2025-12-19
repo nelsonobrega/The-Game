@@ -112,20 +112,20 @@ void Room::addDoor(DoorDirection direction, DoorType doorType, sf::Texture& door
     door.sprite->setPosition(position);
     door.overlaySprite->setPosition(position); // Posiciona a moldura
 
-    // Offset interno (36px) para alinhar metades ao centro
+    // Offset interno (40px) para alinhar metades ao centro
     sf::Vector2f doorHalvesOffset(0.f, 0.f);
     switch (direction) {
     case DoorDirection::North:
-        doorHalvesOffset.y = -40.f;
+        doorHalvesOffset.y = -50.f;
         break;
     case DoorDirection::South:
-        doorHalvesOffset.y = 40.f;
+        doorHalvesOffset.y = 50.f;
         break;
     case DoorDirection::East:
-        doorHalvesOffset.x = 40.f;
+        doorHalvesOffset.x = 50.f;
         break;
     case DoorDirection::West:
-        doorHalvesOffset.x = -40.f;
+        doorHalvesOffset.x = -50.f;
         break;
     }
     doorHalvesOffset.y += bossOffsetY; // Aplicar offset Boss às metades

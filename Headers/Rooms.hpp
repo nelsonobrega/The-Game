@@ -87,6 +87,8 @@ public:
 	void checkIfCleared();
 	void openDoors();
 	void closeDoors();
+	void setCornerTextureRect(const sf::IntRect& rect) { cornerTextureRect = rect; }
+	sf::IntRect getCornerTextureRect() const { return cornerTextureRect; }
 private:
 	void updateSingleDoorAnimation(Door& door, float deltaTime);
 	void drawDoor(sf::RenderWindow& window, const Door& door) const;
@@ -100,5 +102,6 @@ private:
 	bool doorsOpened;
 	sf::Vector2f getDoorPosition(DoorDirection direction) const;
 	float getDoorRotation(DoorDirection direction) const;
+	sf::IntRect cornerTextureRect;
 };
 #endif // ROOM_HPP

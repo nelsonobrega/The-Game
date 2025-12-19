@@ -35,7 +35,7 @@ struct PlayerStatsConfig {
     int damage = 1;
     float speed = 350.0f;
     float hit_flash_duration = 0.1f;
-    float min_damage_interval = 0.02f; // novo: intervalo mínimo entre danos (segundos)
+    float min_damage_interval = 0.02f; // novo
 };
 
 // Player Attack Config
@@ -301,6 +301,7 @@ struct CornerTextureConfig {
     Option option_a = { 0, 0, 234, 155 };
     Option option_b = { 0, 156, 234, 155 };
     Option option_c = { 234, 0, 234, 155 };
+    Option boss_room = { 234, 156, 234, 155 };
 
     float scale_x = 960.0f / 234.0f;
     float scale_y = 540.0f / 156.0f;

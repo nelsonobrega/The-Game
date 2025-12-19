@@ -7,7 +7,7 @@
       "min_damage_interval": 0.02
     },
     "attack": {
-      "cooldown": 0.35,
+      "cooldown": 0.0,
       "projectile_speed": 650.0,
       "projectile_max_distance": 900.0
     },
@@ -240,6 +240,12 @@
       "option_c": {
         "x": 234,
         "y": 0,
+        "width": 234,
+        "height": 156
+      },
+      "Boss_room": {
+        "x": 234,
+        "y": 156,
         "width": 234,
         "height": 156
       }
