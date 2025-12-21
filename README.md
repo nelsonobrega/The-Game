@@ -12,10 +12,13 @@ Início: 26/09/2025
 ## Funcionalidades
 - [X] Movimento do personagem
 - [X] Disparo de lágrimas
-- [ ] Níveis / Salas
+- [X] Salas
 - [X] Inimigos
 - [ ] Itens
 - [X] Sprites / Animações
+- [ ] Niveis
+- [ ] Boss
+- [ ] Varios Enemies
 
 ---
 
