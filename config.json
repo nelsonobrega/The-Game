@@ -7,7 +7,7 @@
       "min_damage_interval": 0.02
     },
     "attack": {
-      "cooldown": 0.0,
+      "cooldown": 0.4,
       "projectile_speed": 650.0,
       "projectile_max_distance": 900.0
     },

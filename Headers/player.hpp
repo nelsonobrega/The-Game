@@ -45,6 +45,7 @@ public:
 
 private:
     std::optional<sf::Sprite> Isaac;
+    float invulTimer = 0.f;
 
     // VARIÁVEIS CARREGADAS DA CONFIGURAÇÃO
     int health = 0;
