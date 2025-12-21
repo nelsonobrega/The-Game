@@ -2,14 +2,14 @@
   "player": {
     "stats": {
       "initial_health": 6,
-      "speed": 350.0,
+      "speed": 375.0,
       "hit_flash_duration": 0.05,
-      "min_damage_interval": 0.02
+      "min_damage_interval": 0.001
     },
     "attack": {
-      "cooldown": 0.35,
+      "cooldown": 0.1,
       "projectile_speed": 650.0,
-      "projectile_max_distance": 900.0
+      "projectile_max_distance": 400.0
     },
     "visual": {
       "scale": 3.0,
@@ -36,14 +36,14 @@
       "initial_health": 15,
       "max_health": 40,
       "damage": 1,
-      "speed": 135.0
+      "speed": 115.0
     },
     "attack": {
       "fire_cooldown": 1.4,
-      "attack_delay": 0.15,
+      "attack_delay": 0.2,
       "projectile_count": 3,
-      "projectile_spread": 25.0,
-      "projectile_speed": 700.0,
+      "projectile_spread": 20.0,
+      "projectile_speed": 650.0,
       "projectile_max_distance": 550.0
     },
     "visual": {
@@ -65,10 +65,10 @@
   },
   "bishop": {
     "stats": {
-      "initial_health": 1,
+      "initial_health": 15,
       "damage": 0,
       "speed": 310.0,
-      "spawn_chance_percent": 100
+      "spawn_chance_percent": 40
     },
     "movement": {
       "center_pull_weight": 0.2,
@@ -240,6 +240,12 @@
       "option_c": {
         "x": 234,
         "y": 0,
+        "width": 234,
+        "height": 156
+      },
+      "Boss_room": {
+        "x": 234,
+        "y": 156,
         "width": 234,
         "height": 156
       }

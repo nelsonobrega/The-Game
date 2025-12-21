@@ -6,12 +6,8 @@
 #include <optional>
 #include <cmath>
 #include "ConfigManager.hpp"
-#include "Utils.hpp" // Incluir Utils para acesso a checkCollision, calculateAngle e M_PI
+#include "Utils.hpp"
 
-// *** REMOVIDO: O bloco namespace Constants::PI_F foi removido para evitar redefinição.
-// A constante M_PI já está disponível via Utils.hpp.
-
-// Estrutura para os projéteis do inimigo
 struct EnemyProjectile {
     sf::Sprite sprite;
     sf::Vector2f direction;
@@ -23,10 +19,19 @@ class EnemyBase {
 public:
     virtual ~EnemyBase() = default;
 
-    void takeDamage(int amount);
+    // Métodos Virtuais (Permitem que o Game.cpp trate todos como 'EnemyBase')
+    virtual void takeDamage(int amount);
+    virtual void heal(int amount); // Adicionado aqui como virtual
+
     int getHealth() const { return health; }
-    sf::FloatRect getGlobalBounds() const;
+
+    virtual sf::FloatRect getGlobalBounds() const;
+
     std::vector<EnemyProjectile>& getProjectiles();
+
+    virtual void setPosition(const sf::Vector2f& pos) {
+        if (sprite) sprite->setPosition(pos);
+    }
 
     virtual void update(float deltaTime, sf::Vector2f playerPosition, const sf::FloatRect& gameBounds) = 0;
     virtual void draw(sf::RenderWindow& window);
@@ -46,15 +51,18 @@ protected:
 
     std::vector<EnemyProjectile> projectiles;
 
+    // Flash de Dano (Vermelho)
     sf::Clock hitClock;
     sf::Time hitFlashDuration;
     bool isHit = false;
 
+    // Flash de Cura (Verde)
     sf::Clock healFlashClock;
-    const sf::Time healFlashDuration = sf::seconds(2.0f);
-    bool isHealed = false;
-    void handleHealFlash();
+    const sf::Time healFlashDuration = sf::seconds(0.5f); // Reduzi para 0.5s para ser um feedback rápido
+    bool isHealing = false; // Corrigido de isHealed para isHealing conforme o padrão
 
+    // Funções de utilidade
+    void handleHealFlash();
     void updateProjectiles(float deltaTime, const sf::FloatRect& gameBounds);
     void handleHitFlash();
 };
@@ -71,8 +79,10 @@ public:
 
     void update(float deltaTime, sf::Vector2f playerPosition, const sf::FloatRect& gameBounds) override;
 
-    void heal(int amount);
-    void setHealth(int newHealth); // NOVO: Para definir a vida do Boss
+    // override garante que o compilador verifique se a assinatura bate com a base
+    void heal(int amount) override;
+
+    void setHealth(int newHealth);
     void setProjectileTextureRect(const sf::IntRect& rect);
 
 private:
@@ -80,11 +90,9 @@ private:
     std::vector<sf::Texture>* textures_walk_up = nullptr;
     std::vector<sf::Texture>* textures_walk_left = nullptr;
     std::vector<sf::Texture>* textures_walk_right = nullptr;
-
     std::vector<sf::Texture>* last_animation_set = nullptr;
     int current_frame = 0;
     float animation_time = 0.0f;
-
     float frame_duration = 0.f;
 
     sf::Clock cooldownClock;
@@ -98,12 +106,14 @@ private:
     void handleAttack(sf::Vector2f playerPosition);
 };
 
-// --- CLASSE BISHOP (Suporte/Healer) ---
+// --- CLASSE BISHOP ---
 class Bishop_ALL : public EnemyBase {
 public:
     Bishop_ALL(std::vector<sf::Texture>& walkTextures);
-
     void update(float deltaTime, sf::Vector2f playerPosition, const sf::FloatRect& gameBounds) override;
+
+    // Bishop geralmente não se autocura, mas precisa implementar a interface virtual
+    void heal(int amount) override { /* Opcional: Bishop se curar também */ }
 
     bool shouldHealDemon() const;
     void resetHealFlag();
@@ -112,7 +122,6 @@ private:
     std::vector<sf::Texture>* textures_idle = nullptr;
     int current_frame = 0;
     float animation_time = 0.0f;
-
     float frame_duration = 0.f;
     int FRAME_B7_INDEX = 0;
 
@@ -128,6 +137,4 @@ private:
     void handleAnimation(float deltaTime);
 };
 
-// *** REMOVIDO: A declaração de calculateAngle foi removida, pois está em Utils.hpp.
-
-#endif // ENEMY_HPP
+#endif
