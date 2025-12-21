@@ -2,6 +2,7 @@
 #include "Utils.hpp"
 #include "ConfigManager.hpp"
 #include "Chubby.hpp"
+#include "Monstro.hpp"
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
@@ -21,28 +22,46 @@ void Game::loadGameAssets() {
     assets.loadAnimation("Bishop", "Bishop", "B", 14, ".png");
 
     assets.loadTexture("ChubbySheet", "Images/Chubby/Chubby.png");
-
     assets.loadTexture("Door", "Images/Background/Doors.png");
     assets.loadTexture("HeartF", "Images/UI/Life/Full.png");
     assets.loadTexture("HeartH", "Images/UI/Life/Half.png");
     assets.loadTexture("HeartE", "Images/UI/Life/Empty.png");
     assets.loadTexture("BasementCorner", "Images/Background/Basement_sheet.png");
+    assets.loadTexture("MonstroSheet", "Images/Monstro(BOSS)/Monstro.png");
 }
 
 void Game::updateRoomVisuals() {
     Room* curr = roomManager->getCurrentRoom();
     if (!curr) return;
+
     sf::IntRect savedRect = curr->getCornerTextureRect();
-    cornerTL->setTextureRect(savedRect);
-    cornerTR->setTextureRect(savedRect);
-    cornerBL->setTextureRect(savedRect);
-    cornerBR->setTextureRect(savedRect);
+    if (cornerTL) cornerTL->setTextureRect(savedRect);
+    if (cornerTR) cornerTR->setTextureRect(savedRect);
+    if (cornerBL) cornerBL->setTextureRect(savedRect);
+    if (cornerBR) cornerBR->setTextureRect(savedRect);
+
+    if (curr->getType() == RoomType::Boss && !curr->isCleared()) {
+        showBossTitle = true;
+        bossTitleTimer = 0.0f;
+
+        // Configuração do Retângulo Preto para o Freeze
+        bossIntroBackground.setSize({ 1920.f, 1080.f });
+        bossIntroBackground.setFillColor(sf::Color::Black);
+
+        bossNameSprite.emplace(assets.getTexture("MonstroSheet"));
+        bossNameSprite->setTextureRect(sf::IntRect({ 173, 237 }, { 149, 45 }));
+        bossNameSprite->setOrigin({ 149 / 2.f, 45 / 2.f });
+        bossNameSprite->setPosition({ 1920 / 2.f, 1080 / 2.f });
+        bossNameSprite->setScale({ 4.0f, 4.0f });
+    }
 }
 
 Game::Game()
     : window(sf::VideoMode(sf::Vector2u(1920, 1080)), "The Game - Isaac Clone"),
     currentState(GameState::menu),
-    assets(AssetManager::getInstance())
+    assets(AssetManager::getInstance()),
+    showBossTitle(false),
+    bossTitleTimer(0.f)
 {
     try { ConfigManager::getInstance().loadConfig("config.json"); }
     catch (const std::exception& e) { std::cerr << "Config Error: " << e.what() << std::endl; }
@@ -114,6 +133,18 @@ void Game::run() {
 
 void Game::update(float deltaTime) {
     if (!Isaac || !roomManager) return;
+
+    // --- LÓGICA DE INTRO DO BOSS (FREEZE) ---
+    if (showBossTitle) {
+        bossTitleTimer += deltaTime;
+        if (bossTitleTimer > 4.5f) { // 2s preto + 2.5s texto
+            showBossTitle = false;
+        }
+        else {
+            return; // Bloqueia o update do resto do jogo
+        }
+    }
+
     const auto& config = ConfigManager::getInstance().getConfig();
     sf::Vector2f playerPosition = Isaac->getPosition();
 
@@ -142,16 +173,25 @@ void Game::update(float deltaTime) {
         auto& demons = currentRoom->getDemons();
         auto& bishops = currentRoom->getBishops();
         auto& chubbies = currentRoom->getChubbies();
+        auto& monstros = currentRoom->getMonstros();
 
         sf::FloatRect isaacBounds = Isaac->getGlobalBounds();
 
+        // Colisões Isaac -> Inimigos
         for (auto itTear = isaacProjectiles.begin(); itTear != isaacProjectiles.end();) {
             bool hit = false;
             sf::FloatRect tearBounds = itTear->sprite.getGlobalBounds();
 
-            for (auto& d : demons) {
-                if (d->getHealth() > 0 && checkCollision(tearBounds, d->getGlobalBounds())) {
-                    d->takeDamage(config.player.stats.damage); hit = true; break;
+            for (auto& m : monstros) {
+                if (m->getHealth() > 0 && checkCollision(tearBounds, m->getGlobalBounds())) {
+                    m->takeDamage(config.player.stats.damage); hit = true; break;
+                }
+            }
+            if (!hit) {
+                for (auto& d : demons) {
+                    if (d->getHealth() > 0 && checkCollision(tearBounds, d->getGlobalBounds())) {
+                        d->takeDamage(config.player.stats.damage); hit = true; break;
+                    }
                 }
             }
             if (!hit) {
@@ -173,6 +213,23 @@ void Game::update(float deltaTime) {
             else ++itTear;
         }
 
+        // Colisões Monstro -> Isaac
+        for (auto& m : monstros) {
+            if (m->getHealth() <= 0) continue;
+            if (checkCollision(isaacBounds, m->getGlobalBounds())) {
+                int dmg = (m->getState() == MonstroState::Falling) ? 2 : 1;
+                Isaac->takeDamage(dmg);
+            }
+            auto& mProj = m->getProjectiles();
+            for (auto itP = mProj.begin(); itP != mProj.end();) {
+                if (checkCollision(isaacBounds, itP->sprite.getGlobalBounds())) {
+                    Isaac->takeDamage(1); itP = mProj.erase(itP);
+                }
+                else ++itP;
+            }
+        }
+
+        // Colisões Outros
         for (auto& d : demons) {
             if (d->getHealth() <= 0) continue;
             if (checkCollision(isaacBounds, d->getGlobalBounds())) { Isaac->takeDamage(1); }
@@ -186,30 +243,13 @@ void Game::update(float deltaTime) {
         }
 
         for (auto& b : bishops) {
-            if (b->getHealth() > 0 && checkCollision(isaacBounds, b->getGlobalBounds())) {
-                Isaac->takeDamage(1);
-            }
+            if (b->getHealth() > 0 && checkCollision(isaacBounds, b->getGlobalBounds())) { Isaac->takeDamage(1); }
         }
 
         for (auto& c : chubbies) {
             if (c->getHealth() <= 0) continue;
-
-            sf::FloatRect cBody = c->getGlobalBounds();
-            cBody.size.x *= 0.6f; cBody.size.y *= 0.6f;
-            cBody.position.x += cBody.size.x * 0.2f;
-            cBody.position.y += cBody.size.y * 0.2f;
-
-            if (checkCollision(isaacBounds, cBody)) {
-                Isaac->takeDamage(1);
-            }
-
-            if (c->isBoomerangActive()) {
-                sf::FloatRect boomBounds = c->getBoomerangBounds();
-
-                if (checkCollision(isaacBounds, boomBounds)) {
-                    Isaac->takeDamage(2);
-                }
-            }
+            if (checkCollision(isaacBounds, c->getGlobalBounds())) { Isaac->takeDamage(1); }
+            if (c->isBoomerangActive() && checkCollision(isaacBounds, c->getBoomerangBounds())) { Isaac->takeDamage(2); }
         }
     }
 
@@ -220,15 +260,16 @@ void Game::render() {
     window.clear();
     const auto& config = ConfigManager::getInstance().getConfig();
 
+    // Desenha o cenário
     if (cornerTL) window.draw(*cornerTL);
     if (cornerTR) window.draw(*cornerTR);
     if (cornerBL) window.draw(*cornerBL);
     if (cornerBR) window.draw(*cornerBR);
 
     if (roomManager) roomManager->draw(window);
-
     if (Isaac) Isaac->draw(window);
 
+    // UI de Vida
     if (Isaac && heartSpriteF) {
         int hp = Isaac->getHealth();
         float x = config.game.ui.heart_ui_x;
@@ -245,6 +286,18 @@ void Game::render() {
         roomManager->drawMiniMap(window);
         roomManager->drawTransitionOverlay(window);
     }
+
+    // --- RENDER DA INTRO DO BOSS ---
+    if (showBossTitle) {
+        // Sempre desenha o fundo preto durante a intro
+        window.draw(bossIntroBackground);
+
+        // Só desenha o texto após os 2 segundos iniciais de tela preta
+        if (bossTitleTimer > 2.0f && bossNameSprite) {
+            window.draw(*bossNameSprite);
+        }
+    }
+
     window.display();
 }
 

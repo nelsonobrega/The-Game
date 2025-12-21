@@ -5,7 +5,7 @@
 #include "player.hpp"
 #include "enemy.hpp"
 #include "AssetManager.hpp"
-#include "RoomsManager.hpp" // NOVO: Incluir o RoomsManager
+#include "RoomsManager.hpp"
 #include <optional>
 
 enum class GameState {
@@ -24,12 +24,17 @@ private:
     void update(float deltaTime);
     void updateRoomVisuals();
     void render();
-
     void loadGameAssets();
     void setupMenu();
 
     sf::RenderWindow window;
     GameState currentState;
+
+    // --- Lógica do Boss Splash ---
+    bool showBossTitle;
+    float bossTitleTimer;
+    sf::RectangleShape bossIntroBackground; // <-- ADICIONADO AQUI
+    std::optional<sf::Sprite> bossNameSprite;
 
     // Textures para menu e UI
     sf::Texture playButtonTexture;
@@ -48,23 +53,19 @@ private:
     std::optional<sf::Sprite> cornerBL;
     std::optional<sf::Sprite> cornerBR;
 
-    // NOVO: O RoomManager agora gere todas as salas e inimigos
+    // Gestão de Salas
     std::optional<RoomManager> roomManager;
 
-    // Game object opcional para o player
+    // Player
     std::optional<Player_ALL> Isaac;
 
-    // REMOVIDO: Demon e Bishop (agora geridos pelo RoomManager)
-
-    // Sprites opcionais para corações de vida
+    // UI de Vida
     std::optional<sf::Sprite> heartSpriteF;
     std::optional<sf::Sprite> heartSpriteH;
     std::optional<sf::Sprite> heartSpriteE;
 
     sf::FloatRect gameBounds;
-
     sf::Clock clock;
-
     AssetManager& assets;
 
     bool isMouseOver(const sf::Sprite& sprite);

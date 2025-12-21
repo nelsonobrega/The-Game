@@ -42,11 +42,13 @@ void RoomManager::generateDungeon(int numRooms) {
     sf::Texture& doorTexture = assets.getTexture("Door");
     int nextAvailableRoomID = 0;
 
+    // Criar Sala Inicial
     createRoom(nextAvailableRoomID, RoomType::SafeZone);
     coordToRoomID[{0, 0}] = nextAvailableRoomID++;
 
     std::vector<sf::Vector2i> availableCoords = { {0, 0} };
 
+    // Gerar corpo principal da dungeon
     while (nextAvailableRoomID < numRooms - 2 && !availableCoords.empty()) {
         std::uniform_int_distribution<> coordDist(0, (int)availableCoords.size() - 1);
         sf::Vector2i parentCoord = availableCoords[coordDist(rng)];
@@ -61,9 +63,11 @@ void RoomManager::generateDungeon(int numRooms) {
             if (coordToRoomID.find(nextCoord) == coordToRoomID.end()) {
                 createRoom(nextAvailableRoomID, RoomType::Normal);
                 coordToRoomID[nextCoord] = nextAvailableRoomID;
+
                 rooms.at(parentID).addDoor(dir, DoorType::Normal, doorTexture);
                 rooms.at(nextAvailableRoomID).addDoor(getOppositeDirection(dir), DoorType::Normal, doorTexture);
                 connectRooms(parentID, nextAvailableRoomID, dir);
+
                 availableCoords.push_back(nextCoord);
                 nextAvailableRoomID++;
                 roomAdded = true;
@@ -74,9 +78,11 @@ void RoomManager::generateDungeon(int numRooms) {
             availableCoords.erase(std::remove(availableCoords.begin(), availableCoords.end(), parentCoord), availableCoords.end());
     }
 
+    // Lambda para colocar salas especiais (Boss e Treasure) em pontas soltas
     auto setupSpecial = [&](RoomType rType, int rID, DoorType dType) {
         for (auto const& [coord, id] : coordToRoomID) {
             if (rooms.at(id).getType() != RoomType::Normal) continue;
+
             std::vector<DoorDirection> av = { DoorDirection::North, DoorDirection::South, DoorDirection::East, DoorDirection::West };
             for (auto const& d : rooms.at(id).getDoors())
                 av.erase(std::remove(av.begin(), av.end(), d.direction), av.end());
@@ -100,13 +106,22 @@ void RoomManager::generateDungeon(int numRooms) {
     currentRoomID = 0;
     currentRoom = &rooms.at(0);
     currentRoom->openDoors();
+    visitedRooms.insert(currentRoomID);
 }
 
 void RoomManager::createRoom(int id, RoomType type) {
     rooms.emplace(id, Room(id, type, gameBounds));
+
+    // Variantes visuais (Chão/Cantos)
     std::vector<sf::IntRect> vars = { {{0, 0}, {234, 156}}, {{0, 156}, {234, 156}}, {{234, 0}, {234, 156}} };
-    if (type == RoomType::Boss) rooms.at(id).setCornerTextureRect({ {234, 156}, {234, 156} });
-    else rooms.at(id).setCornerTextureRect(vars[std::uniform_int_distribution<>(0, 2)(rng)]);
+
+    if (type == RoomType::Boss) {
+        // Visual de "carne/sangue" para a sala do Boss
+        rooms.at(id).setCornerTextureRect({ {234, 156}, {234, 156} });
+    }
+    else {
+        rooms.at(id).setCornerTextureRect(vars[std::uniform_int_distribution<>(0, 2)(rng)]);
+    }
 }
 
 void RoomManager::connectRooms(int roomA, int roomB, DoorDirection dirA) {
@@ -124,8 +139,10 @@ DoorDirection RoomManager::getOppositeDirection(DoorDirection dir) {
 
 DoorDirection RoomManager::checkPlayerAtDoor(const sf::FloatRect& pBounds) {
     if (!currentRoom || !currentRoom->isCleared()) return DoorDirection::None;
-    for (auto const& d : currentRoom->getDoors())
-        if (d.isOpen && d.leadsToRoomID != -1 && checkCollision(pBounds, d.bounds)) return d.direction;
+    for (auto const& d : currentRoom->getDoors()) {
+        if (d.isOpen && d.leadsToRoomID != -1 && checkCollision(pBounds, d.bounds))
+            return d.direction;
+    }
     return DoorDirection::None;
 }
 
@@ -133,6 +150,7 @@ void RoomManager::requestTransition(DoorDirection dir) {
     if (transitionState != TransitionState::None) return;
     nextRoomID = currentRoom->getDoorLeadsTo(dir);
     if (nextRoomID == -1) return;
+
     currentRoom->closeDoors();
     transitionDirection = dir;
     transitionState = TransitionState::FadingOut;
@@ -148,9 +166,11 @@ void RoomManager::updateTransition(float deltaTime, sf::Vector2f& pPos) {
         if (transitionProgress >= 1.f) {
             currentRoomID = nextRoomID;
             currentRoom = &rooms.at(currentRoomID);
+            visitedRooms.insert(currentRoomID); // Registar no minimapa
+
             if (!currentRoom->isCleared()) currentRoom->closeDoors();
 
-            // SPAWN COM CHUBBY: Usamos a mesma textura "ChubbySheet" para corpo e projétil
+            // Spawn centralizado de inimigos (O Room::spawnEnemies agora cuida do tipo de sala)
             currentRoom->spawnEnemies(
                 assets.getAnimationSet("D_Down"), assets.getAnimationSet("D_Up"),
                 assets.getAnimationSet("D_Left"), assets.getAnimationSet("D_Right"),
@@ -166,31 +186,50 @@ void RoomManager::updateTransition(float deltaTime, sf::Vector2f& pPos) {
     }
     else {
         transitionOverlay.setFillColor(sf::Color(0, 0, 0, (int)(255 * (1.f - transitionProgress))));
-        if (transitionProgress >= 1.f) { transitionState = TransitionState::None; transitionOverlay.setFillColor(sf::Color::Transparent); }
+        if (transitionProgress >= 1.f) {
+            transitionState = TransitionState::None;
+            transitionOverlay.setFillColor(sf::Color::Transparent);
+        }
     }
 }
 
-void RoomManager::update(float dt, sf::Vector2f pPos) { if (currentRoom) currentRoom->update(dt, pPos); }
-void RoomManager::draw(sf::RenderWindow& win) { if (currentRoom) currentRoom->draw(win); }
-void RoomManager::drawTransitionOverlay(sf::RenderWindow& win) { if (transitionState != TransitionState::None) win.draw(transitionOverlay); }
+void RoomManager::update(float dt, sf::Vector2f pPos) {
+    if (currentRoom) currentRoom->update(dt, pPos);
+}
+
+void RoomManager::draw(sf::RenderWindow& win) {
+    if (currentRoom) currentRoom->draw(win);
+}
+
+void RoomManager::drawTransitionOverlay(sf::RenderWindow& win) {
+    if (transitionState != TransitionState::None) win.draw(transitionOverlay);
+}
 
 sf::Vector2i RoomManager::getCurrentRoomCoord() const {
-    for (auto const& [coord, id] : coordToRoomID) if (id == currentRoomID) return coord;
+    for (auto const& [coord, id] : coordToRoomID)
+        if (id == currentRoomID) return coord;
     return { 0,0 };
 }
 
 void RoomManager::drawMiniMap(sf::RenderWindow& win) {
     const auto& m = ConfigManager::getInstance().getConfig().game.minimap;
     sf::Vector2f pos(win.getSize().x - m.size - m.offset_x, m.offset_y);
-    sf::RectangleShape bg({ m.size, m.size }); bg.setPosition(pos); bg.setFillColor({ 0,0,0,(uint8_t)m.background_color_alpha }); win.draw(bg);
 
-    visitedRooms.insert(currentRoomID);
+    // Fundo do Minimapa
+    sf::RectangleShape bg({ m.size, m.size });
+    bg.setPosition(pos);
+    bg.setFillColor({ 0,0,0,(uint8_t)m.background_color_alpha });
+    win.draw(bg);
+
     sf::Vector2i curC = getCurrentRoomCoord();
     sf::Vector2f center = pos + sf::Vector2f(m.size / 2.f, m.size / 2.f);
 
     for (int id : visitedRooms) {
-        sf::Vector2i rC; bool found = false;
-        for (auto const& [coord, rid] : coordToRoomID) if (rid == id) { rC = coord; found = true; break; }
+        sf::Vector2i rC;
+        bool found = false;
+        for (auto const& [coord, rid] : coordToRoomID) {
+            if (rid == id) { rC = coord; found = true; break; }
+        }
         if (!found) continue;
 
         sf::Vector2f rP = center + sf::Vector2f((rC.x - curC.x) * m.room_spacing, (rC.y - curC.y) * m.room_spacing);
@@ -198,10 +237,16 @@ void RoomManager::drawMiniMap(sf::RenderWindow& win) {
         rr.setOrigin({ m.room_size / 2.f, m.room_size / 2.f });
         rr.setPosition(rP);
 
-        if (id == currentRoomID) rr.setFillColor(sf::Color::Red);
-        else if (rooms.at(id).getType() == RoomType::Treasure) rr.setFillColor(sf::Color::Yellow);
-        else if (rooms.at(id).getType() == RoomType::Boss) rr.setFillColor(sf::Color::Black);
-        else rr.setFillColor(rooms.at(id).isCleared() ? sf::Color::White : sf::Color(150, 150, 150));
+        // Cores do Minimapa
+        if (id == currentRoomID)
+            rr.setFillColor(sf::Color::Red); // Sala Atual
+        else if (rooms.at(id).getType() == RoomType::Treasure)
+            rr.setFillColor(sf::Color::Yellow); // Item Room
+        else if (rooms.at(id).getType() == RoomType::Boss)
+            rr.setFillColor(sf::Color::Black); // Boss Room
+        else
+            rr.setFillColor(rooms.at(id).isCleared() ? sf::Color::White : sf::Color(150, 150, 150));
+
         win.draw(rr);
     }
 }

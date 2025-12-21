@@ -9,6 +9,7 @@
 #include <algorithm>
 #include "enemy.hpp"
 #include "Chubby.hpp"
+#include "Monstro.hpp" // Adicionado para reconhecer a classe Monstro
 
 enum class DoorDirection {
     North,
@@ -45,7 +46,6 @@ struct Door {
     std::optional<sf::Sprite> leftHalf;
     std::optional<sf::Sprite> rightHalf;
     std::optional<sf::Sprite> overlaySprite;
-    std::optional<sf::RectangleShape> collisionShape;
     sf::IntRect leftHalfOriginalRect;
     sf::IntRect rightHalfOriginalRect;
     sf::FloatRect bounds;
@@ -65,7 +65,7 @@ public:
     void addDoor(DoorDirection direction, DoorType doorType, sf::Texture& doorSpritesheet);
     void connectDoor(DoorDirection direction, int targetRoomID);
 
-    // Spawn de Inimigos (Suporta múltiplos de cada tipo)
+    // Spawn de Inimigos (Agora inclui Monstro)
     void spawnEnemies(
         std::vector<sf::Texture>& demonWalkDown,
         std::vector<sf::Texture>& demonWalkUp,
@@ -88,12 +88,12 @@ public:
     bool hasDoor(DoorDirection direction) const;
     int getDoorLeadsTo(DoorDirection direction) const;
     const std::vector<Door>& getDoors() const { return doors; }
-    DoorType getDoorType(DoorDirection direction) const;
 
-    // NOVOS GETTERS (Essenciais para o Game.cpp funcionar com listas)
+    // GETTERS PARA O GAME.CPP
     std::vector<std::unique_ptr<Demon_ALL>>& getDemons() { return demons; }
     std::vector<std::unique_ptr<Bishop_ALL>>& getBishops() { return bishops; }
     std::vector<std::unique_ptr<Chubby>>& getChubbies() { return chubbies; }
+    std::vector<std::unique_ptr<Monstro>>& getMonstros() { return monstros; } // Adicionado
 
     // Auxiliares de Gameplay
     sf::Vector2f getPlayerSpawnPosition(DoorDirection doorDirection) const;
@@ -107,7 +107,6 @@ public:
 
 private:
     void updateDoorAnimations(float deltaTime);
-    void updateSingleDoorAnimation(Door& door, float deltaTime);
     void drawDoor(sf::RenderWindow& window, const Door& door) const;
     sf::Vector2f getDoorPosition(DoorDirection direction) const;
     float getDoorRotation(DoorDirection direction) const;
@@ -117,10 +116,11 @@ private:
     sf::FloatRect gameBounds;
     std::vector<Door> doors;
 
-    // LISTAS DE INIMIGOS (Permite múltiplos Chubbies/Demons por sala)
+    // LISTAS DE INIMIGOS
     std::vector<std::unique_ptr<Demon_ALL>> demons;
     std::vector<std::unique_ptr<Bishop_ALL>> bishops;
     std::vector<std::unique_ptr<Chubby>> chubbies;
+    std::vector<std::unique_ptr<Monstro>> monstros; // Adicionado
 
     bool cleared;
     bool doorsOpened;

@@ -1,6 +1,8 @@
 ﻿#include "Rooms.hpp"
 #include "enemy.hpp"
 #include "ConfigManager.hpp"
+#include "AssetManager.hpp"
+#include "Monstro.hpp"
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
@@ -102,38 +104,49 @@ void Room::spawnEnemies(std::vector<sf::Texture>& dDown, std::vector<sf::Texture
     sf::Texture& cSheet, sf::Texture& cProj) {
 
     if (type == RoomType::SafeZone || type == RoomType::Treasure || cleared) return;
-    if (!demons.empty() || !bishops.empty() || !chubbies.empty()) return;
+    if (!demons.empty() || !bishops.empty() || !chubbies.empty() || !monstros.empty()) return;
 
-    // --- CONFIGURAÇÃO DAS LÁGRIMAS DO DEMON (VITAL PARA APARECEREM) ---
+    // --- CONFIGURAÇÃO DAS LÁGRIMAS DO DEMON ---
     const auto& dConfigTear = ConfigManager::getInstance().getConfig().projectile_textures.demon_tear;
     sf::IntRect demonTearRect({ dConfigTear.x, dConfigTear.y }, { dConfigTear.width, dConfigTear.height });
 
-    // SPAWN DO BOSS
+    // === SPAWN DO BOSS MONSTRO ===
     if (type == RoomType::Boss) {
-        auto boss = std::make_unique<Demon_ALL>(dDown, dUp, dLeft, dRight, dProj);
-        boss->setProjectileTextureRect(demonTearRect); // Define os frames do tiro
-        boss->setPosition({ gameBounds.position.x + gameBounds.size.x / 2.f,
-                            gameBounds.position.y + gameBounds.size.y / 2.f });
-        demons.push_back(std::move(boss));
+        sf::Texture& monstroTex = AssetManager::getInstance().getTexture("MonstroSheet");
+
+        // CORREÇÃO: Passando monstroTex, dProj (textura de projétil que já vem no argumento da função)
+        // e a posição central calculada.
+        sf::Vector2f centerPos = {
+            gameBounds.position.x + gameBounds.size.x / 2.f,
+            gameBounds.position.y + gameBounds.size.y / 2.f
+        };
+
+        auto boss = std::make_unique<Monstro>(
+            monstroTex,
+            dProj,      // Usando a textura de projétil padrão passada para spawnEnemies
+            centerPos   // Posição inicial
+        );
+
+        monstros.push_back(std::move(boss));
     }
-    // SPAWN NORMAL (ALEATÓRIO)
+    // === SPAWN NORMAL ===
     else if (type == RoomType::Normal) {
         int enemyLogic = rand() % 100;
 
-        if (enemyLogic < 50) { // 50% Chubbies
-            int count = 2 + (rand() % 3);
+        if (enemyLogic < 40) { // 40% Chubbies
+            int count = 2 + (rand() % 2);
             for (int i = 0; i < count; i++) {
                 auto chubby = std::make_unique<Chubby>(cSheet, cProj);
-                float margin = 250.f;
+                float margin = 200.f;
                 float rx = margin + static_cast<float>(rand() % static_cast<int>(gameBounds.size.x - margin * 2));
                 float ry = margin + static_cast<float>(rand() % static_cast<int>(gameBounds.size.y - margin * 2));
                 chubby->setPosition({ gameBounds.position.x + rx, gameBounds.position.y + ry });
                 chubbies.push_back(std::move(chubby));
             }
         }
-        else { // 50% Demons + Bishops
+        else { // 60% Demons + Bishops
             auto demon = std::make_unique<Demon_ALL>(dDown, dUp, dLeft, dRight, dProj);
-            demon->setProjectileTextureRect(demonTearRect); // Define os frames do tiro
+            demon->setProjectileTextureRect(demonTearRect);
             demons.push_back(std::move(demon));
             bishops.push_back(std::make_unique<Bishop_ALL>(bTex));
         }
@@ -141,9 +154,11 @@ void Room::spawnEnemies(std::vector<sf::Texture>& dDown, std::vector<sf::Texture
 }
 
 void Room::update(float deltaTime, sf::Vector2f playerPosition) {
+    // Atualiza apenas inimigos vivos
     for (auto& d : demons) if (d->getHealth() > 0) d->update(deltaTime, playerPosition, gameBounds);
     for (auto& b : bishops) if (b->getHealth() > 0) b->update(deltaTime, playerPosition, gameBounds);
     for (auto& c : chubbies) if (c->getHealth() > 0) c->update(deltaTime, playerPosition, gameBounds);
+    for (auto& m : monstros) if (m->getHealth() > 0) m->update(deltaTime, playerPosition, gameBounds);
 
     updateDoorAnimations(deltaTime);
     checkIfCleared();
@@ -152,23 +167,11 @@ void Room::update(float deltaTime, sf::Vector2f playerPosition) {
 void Room::draw(sf::RenderWindow& window) {
     for (const auto& door : doors) drawDoor(window, door);
 
-    // Desenhar inimigos (e os seus projéteis internos)
+    // Desenhar inimigos
     for (auto& d : demons) if (d->getHealth() > 0) d->draw(window);
     for (auto& b : bishops) if (b->getHealth() > 0) b->draw(window);
     for (auto& c : chubbies) if (c->getHealth() > 0) c->draw(window);
-
-    // DEBUG MODE (Hitboxes das portas)
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::P)) {
-        sf::RectangleShape rect;
-        rect.setFillColor(sf::Color::Transparent);
-        rect.setOutlineColor(sf::Color::Red);
-        rect.setOutlineThickness(2.0f);
-        for (const auto& d : doors) {
-            rect.setPosition(d.bounds.position);
-            rect.setSize(d.bounds.size);
-            window.draw(rect);
-        }
-    }
+    for (auto& m : monstros) if (m->getHealth() > 0) m->draw(window);
 }
 
 void Room::drawDoor(sf::RenderWindow& window, const Door& door) const {
@@ -201,7 +204,9 @@ void Room::drawDoor(sf::RenderWindow& window, const Door& door) const {
 void Room::checkIfCleared() {
     if (cleared) return;
     auto dead = [](const auto& v) { return std::all_of(v.begin(), v.end(), [](const auto& e) { return e->getHealth() <= 0; }); };
-    if (dead(demons) && dead(bishops) && dead(chubbies)) {
+
+    // Verifica todas as listas de inimigos, incluindo Monstros
+    if (dead(demons) && dead(bishops) && dead(chubbies) && dead(monstros)) {
         cleared = true;
         openDoors();
     }
@@ -246,7 +251,6 @@ float Room::getDoorRotation(DoorDirection dir) const {
 void Room::connectDoor(DoorDirection dir, int id) { for (auto& d : doors) if (d.direction == dir) d.leadsToRoomID = id; }
 bool Room::hasDoor(DoorDirection dir) const { for (const auto& d : doors) if (d.direction == dir) return true; return false; }
 int Room::getDoorLeadsTo(DoorDirection dir) const { for (const auto& d : doors) if (d.direction == dir) return d.leadsToRoomID; return -1; }
-DoorType Room::getDoorType(DoorDirection dir) const { for (const auto& d : doors) if (d.direction == dir) return d.type; return DoorType::Normal; }
 
 sf::Vector2f Room::getPlayerSpawnPosition(DoorDirection dir) const {
     sf::Vector2f p = getDoorPosition(dir);
