@@ -1,6 +1,7 @@
 #include "Chubby.hpp"
 #include <cmath>
 #include <random>
+#include <iostream>
 
 Chubby::Chubby(sf::Texture& sheet, sf::Texture& projSheet) : EnemyBase() {
     scaleFactor = 2.5f;
@@ -15,7 +16,7 @@ Chubby::Chubby(sf::Texture& sheet, sf::Texture& projSheet) : EnemyBase() {
     projectileSprite->setPosition({ -9999.f, -9999.f });
     projectileSprite->setTextureRect({ {458, 12}, {24, 18} });
 
-    health = 15;
+    health = 7;
     state = ChubbyState::Idle;
     faceDir = FaceDir::Down;
     stateTimer = 0.f;
@@ -23,6 +24,31 @@ Chubby::Chubby(sf::Texture& sheet, sf::Texture& projSheet) : EnemyBase() {
     animFrame = 0;
     boomerangActive = false;
     distanceWalked = 0.f;
+}
+
+// Implementação do Dano
+void Chubby::takeDamage(int amount) {
+    if (health > 0) {
+        health -= amount;
+        isHit = true;
+        hitClock.restart();
+        if (sprite) sprite->setColor(sf::Color::Red);
+        std::cout << "Chubby levou dano! Vida atual: " << health << std::endl;
+    }
+}
+
+// Implementação da Cura (Corrigida com healFlashClock)
+void Chubby::heal(int amount) {
+    if (health > 0) {
+        health += amount;
+        // Opcional: health = std::min(health, maxHealth);
+
+        isHealing = true;             // Variável da EnemyBase
+        healFlashClock.restart();     // Nome sincronizado com Enemy.hpp
+
+        if (sprite) sprite->setColor(sf::Color::Green);
+        std::cout << "Chubby curado! Vida atual: " << health << std::endl;
+    }
 }
 
 void Chubby::setPosition(const sf::Vector2f& pos) {
@@ -41,7 +67,7 @@ sf::FloatRect Chubby::getBoomerangBounds() const {
 }
 
 void Chubby::draw(sf::RenderWindow& window) {
-    if (sprite) {
+    if (sprite && health > 0) {
         window.draw(*sprite);
     }
 
@@ -53,8 +79,7 @@ void Chubby::draw(sf::RenderWindow& window) {
 void Chubby::update(float deltaTime, sf::Vector2f playerPos, const sf::FloatRect& gameBounds) {
     if (health <= 0) return;
 
-    handleHitFlash();
-    handleHealFlash();
+    stateTimer += deltaTime;
 
     if (boomerangActive) {
         updateBoomerang(deltaTime);
@@ -71,12 +96,11 @@ void Chubby::update(float deltaTime, sf::Vector2f playerPos, const sf::FloatRect
     switch (state) {
     case ChubbyState::Idle:
         sprite->setTextureRect({ {242, 24}, {28, 32} });
-        stateTimer += deltaTime;
         if (stateTimer >= 0.4f) {
             state = ChubbyState::Moving;
             stateTimer = 0;
             distanceWalked = 0.f;
-            int r = rand() % 4;
+            int r = rand() % 8;
             if (r == 0) { moveDir = { 1, 0 }; faceDir = FaceDir::Right; }
             else if (r == 1) { moveDir = { -1, 0 }; faceDir = FaceDir::Left; }
             else if (r == 2) { moveDir = { 0, 1 }; faceDir = FaceDir::Down; }
@@ -122,7 +146,6 @@ void Chubby::update(float deltaTime, sf::Vector2f playerPos, const sf::FloatRect
         break;
 
     case ChubbyState::Recovering:
-        stateTimer += deltaTime;
         if (faceDir == FaceDir::Right || faceDir == FaceDir::Left) sprite->setTextureRect({ {306, 26}, {30, 31} });
         else if (faceDir == FaceDir::Down) sprite->setTextureRect({ {272, 58}, {32, 31} });
         else if (faceDir == FaceDir::Up)   sprite->setTextureRect({ {272, 90}, {32, 31} });
@@ -133,6 +156,10 @@ void Chubby::update(float deltaTime, sf::Vector2f playerPos, const sf::FloatRect
         }
         break;
     }
+
+    // Processamento vital dos flashes (Herdado da Base)
+    handleHitFlash();
+    handleHealFlash();
 }
 
 void Chubby::launchBoomerang() {
@@ -168,16 +195,7 @@ void Chubby::launchBoomerang() {
 void Chubby::updateBoomerang(float deltaTime) {
     if (!boomerangReturn) {
         projectilePos += projectileVel * deltaTime;
-
-        if (faceDir == FaceDir::Right || faceDir == FaceDir::Left)
-            projectileSprite->setTextureRect({ {458, 12}, {24, 18} });
-        else if (faceDir == FaceDir::Down)
-            projectileSprite->setTextureRect({ {397, 9}, {18, 24} });
-        else if (faceDir == FaceDir::Up)
-            projectileSprite->setTextureRect({ {397, 41}, {18, 24} });
-
         float speed = std::sqrt(projectileVel.x * projectileVel.x + projectileVel.y * projectileVel.y);
-
         if (speed < 150.f) boomerangReturn = true;
         else projectileVel -= (projectileVel * 2.2f * deltaTime);
     }
@@ -214,7 +232,6 @@ void Chubby::updateBoomerang(float deltaTime) {
 }
 
 void Chubby::handleAttackSequence(float deltaTime, sf::Vector2f playerPos) {
-    stateTimer += deltaTime;
     float curScaleX = (faceDir == FaceDir::Left) ? -scaleFactor : scaleFactor;
     sprite->setScale({ curScaleX, scaleFactor });
     sprite->setOrigin({ (faceDir == FaceDir::Left ? 28.f : 0.f), 0.f });

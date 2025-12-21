@@ -44,7 +44,6 @@ void Game::updateRoomVisuals() {
         showBossTitle = true;
         bossTitleTimer = 0.0f;
 
-        // Configuração do Retângulo Preto para o Freeze
         bossIntroBackground.setSize({ 1920.f, 1080.f });
         bossIntroBackground.setFillColor(sf::Color::Black);
 
@@ -134,15 +133,10 @@ void Game::run() {
 void Game::update(float deltaTime) {
     if (!Isaac || !roomManager) return;
 
-    // --- LÓGICA DE INTRO DO BOSS (FREEZE) ---
     if (showBossTitle) {
         bossTitleTimer += deltaTime;
-        if (bossTitleTimer > 4.5f) { // 2s preto + 2.5s texto
-            showBossTitle = false;
-        }
-        else {
-            return; // Bloqueia o update do resto do jogo
-        }
+        if (bossTitleTimer > 4.5f) showBossTitle = false;
+        else return;
     }
 
     const auto& config = ConfigManager::getInstance().getConfig();
@@ -176,6 +170,21 @@ void Game::update(float deltaTime) {
         auto& monstros = currentRoom->getMonstros();
 
         sf::FloatRect isaacBounds = Isaac->getGlobalBounds();
+
+        // --- LÓGICA DE CURA DO BISHOP ---
+        for (auto& b : bishops) {
+            if (b->getHealth() > 0 && b->shouldHealDemon()) {
+                // Cura Demons
+                for (auto& d : demons) {
+                    if (d->getHealth() > 0) d->heal(4);
+                }
+                // Cura Chubbies
+                for (auto& c : chubbies) {
+                    if (c->getHealth() > 0) c->heal(4);
+                }
+                b->resetHealFlag();
+            }
+        }
 
         // Colisões Isaac -> Inimigos
         for (auto itTear = isaacProjectiles.begin(); itTear != isaacProjectiles.end();) {
@@ -213,7 +222,7 @@ void Game::update(float deltaTime) {
             else ++itTear;
         }
 
-        // Colisões Monstro -> Isaac
+        // Colisões Inimigos -> Isaac
         for (auto& m : monstros) {
             if (m->getHealth() <= 0) continue;
             if (checkCollision(isaacBounds, m->getGlobalBounds())) {
@@ -229,10 +238,9 @@ void Game::update(float deltaTime) {
             }
         }
 
-        // Colisões Outros
         for (auto& d : demons) {
             if (d->getHealth() <= 0) continue;
-            if (checkCollision(isaacBounds, d->getGlobalBounds())) { Isaac->takeDamage(1); }
+            if (checkCollision(isaacBounds, d->getGlobalBounds())) Isaac->takeDamage(1);
             auto& dProj = d->getProjectiles();
             for (auto itP = dProj.begin(); itP != dProj.end();) {
                 if (checkCollision(isaacBounds, itP->sprite.getGlobalBounds())) {
@@ -243,13 +251,13 @@ void Game::update(float deltaTime) {
         }
 
         for (auto& b : bishops) {
-            if (b->getHealth() > 0 && checkCollision(isaacBounds, b->getGlobalBounds())) { Isaac->takeDamage(1); }
+            if (b->getHealth() > 0 && checkCollision(isaacBounds, b->getGlobalBounds())) Isaac->takeDamage(1);
         }
 
         for (auto& c : chubbies) {
             if (c->getHealth() <= 0) continue;
-            if (checkCollision(isaacBounds, c->getGlobalBounds())) { Isaac->takeDamage(1); }
-            if (c->isBoomerangActive() && checkCollision(isaacBounds, c->getBoomerangBounds())) { Isaac->takeDamage(2); }
+            if (checkCollision(isaacBounds, c->getGlobalBounds())) Isaac->takeDamage(1);
+            if (c->BoomerangActive() && checkCollision(isaacBounds, c->getBoomerangBounds())) Isaac->takeDamage(2);
         }
     }
 
@@ -260,7 +268,6 @@ void Game::render() {
     window.clear();
     const auto& config = ConfigManager::getInstance().getConfig();
 
-    // Desenha o cenário
     if (cornerTL) window.draw(*cornerTL);
     if (cornerTR) window.draw(*cornerTR);
     if (cornerBL) window.draw(*cornerBL);
@@ -269,7 +276,6 @@ void Game::render() {
     if (roomManager) roomManager->draw(window);
     if (Isaac) Isaac->draw(window);
 
-    // UI de Vida
     if (Isaac && heartSpriteF) {
         int hp = Isaac->getHealth();
         float x = config.game.ui.heart_ui_x;
@@ -287,15 +293,9 @@ void Game::render() {
         roomManager->drawTransitionOverlay(window);
     }
 
-    // --- RENDER DA INTRO DO BOSS ---
     if (showBossTitle) {
-        // Sempre desenha o fundo preto durante a intro
         window.draw(bossIntroBackground);
-
-        // Só desenha o texto após os 2 segundos iniciais de tela preta
-        if (bossTitleTimer > 2.0f && bossNameSprite) {
-            window.draw(*bossNameSprite);
-        }
+        if (bossTitleTimer > 2.0f && bossNameSprite) window.draw(*bossNameSprite);
     }
 
     window.display();

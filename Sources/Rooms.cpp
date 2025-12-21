@@ -32,7 +32,6 @@ void Room::addDoor(DoorDirection direction, DoorType doorType, sf::Texture& door
     if (doorType == DoorType::Boss) doorConfig = &config.game.door_boss;
     else if (doorType == DoorType::Treasure) doorConfig = &config.game.door_treasure;
 
-    // === FRAME DA PORTA ===
     door.sprite.emplace(doorSpritesheet);
     sf::IntRect textureRect({ doorConfig->frame_start_x, doorConfig->frame_start_y },
         { doorConfig->texture_width, doorConfig->texture_height });
@@ -40,7 +39,6 @@ void Room::addDoor(DoorDirection direction, DoorType doorType, sf::Texture& door
     door.sprite->setOrigin({ (float)doorConfig->origin_x, (float)doorConfig->origin_y });
     door.sprite->setScale({ doorConfig->scale_x, doorConfig->scale_y });
 
-    // === METADES (CLIPPING) ===
     door.leftHalf.emplace(doorSpritesheet);
     sf::IntRect leftRect({ doorConfig->left_half_x, doorConfig->left_half_y },
         { doorConfig->left_half_width, doorConfig->left_half_height });
@@ -57,7 +55,6 @@ void Room::addDoor(DoorDirection direction, DoorType doorType, sf::Texture& door
     door.rightHalf->setScale({ doorConfig->scale_x, doorConfig->scale_y });
     door.rightHalfOriginalRect = rightRect;
 
-    // === OVERLAY ===
     door.overlaySprite.emplace(doorSpritesheet);
     sf::IntRect overlayRect = (doorType == DoorType::Treasure) ? sf::IntRect({ 188, 0 }, { 49, 38 }) :
         (doorType == DoorType::Boss) ? sf::IntRect({ 318, 0 }, { 49, 43 }) :
@@ -106,34 +103,22 @@ void Room::spawnEnemies(std::vector<sf::Texture>& dDown, std::vector<sf::Texture
     if (type == RoomType::SafeZone || type == RoomType::Treasure || cleared) return;
     if (!demons.empty() || !bishops.empty() || !chubbies.empty() || !monstros.empty()) return;
 
-    // --- CONFIGURAÇÃO DAS LÁGRIMAS DO DEMON ---
     const auto& dConfigTear = ConfigManager::getInstance().getConfig().projectile_textures.demon_tear;
     sf::IntRect demonTearRect({ dConfigTear.x, dConfigTear.y }, { dConfigTear.width, dConfigTear.height });
 
-    // === SPAWN DO BOSS MONSTRO ===
     if (type == RoomType::Boss) {
         sf::Texture& monstroTex = AssetManager::getInstance().getTexture("MonstroSheet");
-
-        // CORREÇÃO: Passando monstroTex, dProj (textura de projétil que já vem no argumento da função)
-        // e a posição central calculada.
         sf::Vector2f centerPos = {
             gameBounds.position.x + gameBounds.size.x / 2.f,
             gameBounds.position.y + gameBounds.size.y / 2.f
         };
-
-        auto boss = std::make_unique<Monstro>(
-            monstroTex,
-            dProj,      // Usando a textura de projétil padrão passada para spawnEnemies
-            centerPos   // Posição inicial
-        );
-
+        auto boss = std::make_unique<Monstro>(monstroTex, dProj, centerPos);
         monstros.push_back(std::move(boss));
     }
-    // === SPAWN NORMAL ===
     else if (type == RoomType::Normal) {
         int enemyLogic = rand() % 100;
 
-        if (enemyLogic < 40) { // 40% Chubbies
+        if (enemyLogic < 40) { // 40% Sala de Chubbies
             int count = 2 + (rand() % 2);
             for (int i = 0; i < count; i++) {
                 auto chubby = std::make_unique<Chubby>(cSheet, cProj);
@@ -143,18 +128,25 @@ void Room::spawnEnemies(std::vector<sf::Texture>& dDown, std::vector<sf::Texture
                 chubby->setPosition({ gameBounds.position.x + rx, gameBounds.position.y + ry });
                 chubbies.push_back(std::move(chubby));
             }
+            // Agora spawna Bishop na sala de Chubbies também
+            bishops.push_back(std::make_unique<Bishop_ALL>(bTex));
         }
-        else { // 60% Demons + Bishops
+        else { // 60% Sala de Demons
             auto demon = std::make_unique<Demon_ALL>(dDown, dUp, dLeft, dRight, dProj);
             demon->setProjectileTextureRect(demonTearRect);
             demons.push_back(std::move(demon));
+            // Bishop padrão na sala de Demons
             bishops.push_back(std::make_unique<Bishop_ALL>(bTex));
+        }
+
+        // Ajusta posição do Bishop (evita nascer em cima do spawn do player)
+        if (!bishops.empty()) {
+            bishops.back()->setPosition({ gameBounds.position.x + gameBounds.size.x / 2.f, gameBounds.position.y + 150.f });
         }
     }
 }
 
 void Room::update(float deltaTime, sf::Vector2f playerPosition) {
-    // Atualiza apenas inimigos vivos
     for (auto& d : demons) if (d->getHealth() > 0) d->update(deltaTime, playerPosition, gameBounds);
     for (auto& b : bishops) if (b->getHealth() > 0) b->update(deltaTime, playerPosition, gameBounds);
     for (auto& c : chubbies) if (c->getHealth() > 0) c->update(deltaTime, playerPosition, gameBounds);
@@ -167,7 +159,6 @@ void Room::update(float deltaTime, sf::Vector2f playerPosition) {
 void Room::draw(sf::RenderWindow& window) {
     for (const auto& door : doors) drawDoor(window, door);
 
-    // Desenhar inimigos
     for (auto& d : demons) if (d->getHealth() > 0) d->draw(window);
     for (auto& b : bishops) if (b->getHealth() > 0) b->draw(window);
     for (auto& c : chubbies) if (c->getHealth() > 0) c->draw(window);
@@ -205,7 +196,6 @@ void Room::checkIfCleared() {
     if (cleared) return;
     auto dead = [](const auto& v) { return std::all_of(v.begin(), v.end(), [](const auto& e) { return e->getHealth() <= 0; }); };
 
-    // Verifica todas as listas de inimigos, incluindo Monstros
     if (dead(demons) && dead(bishops) && dead(chubbies) && dead(monstros)) {
         cleared = true;
         openDoors();

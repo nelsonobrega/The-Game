@@ -19,15 +19,16 @@ class EnemyBase {
 public:
     virtual ~EnemyBase() = default;
 
-    void takeDamage(int amount);
+    // Métodos Virtuais (Permitem que o Game.cpp trate todos como 'EnemyBase')
+    virtual void takeDamage(int amount);
+    virtual void heal(int amount); // Adicionado aqui como virtual
+
     int getHealth() const { return health; }
 
-    // Mudança crucial: getGlobalBounds precisa ser virtual para o Chubby poder sobrescrever
     virtual sf::FloatRect getGlobalBounds() const;
 
     std::vector<EnemyProjectile>& getProjectiles();
 
-    // torna virtual para permitir override nas classes derivadas
     virtual void setPosition(const sf::Vector2f& pos) {
         if (sprite) sprite->setPosition(pos);
     }
@@ -50,15 +51,18 @@ protected:
 
     std::vector<EnemyProjectile> projectiles;
 
+    // Flash de Dano (Vermelho)
     sf::Clock hitClock;
     sf::Time hitFlashDuration;
     bool isHit = false;
 
+    // Flash de Cura (Verde)
     sf::Clock healFlashClock;
-    const sf::Time healFlashDuration = sf::seconds(2.0f);
-    bool isHealed = false;
-    void handleHealFlash();
+    const sf::Time healFlashDuration = sf::seconds(0.5f); // Reduzi para 0.5s para ser um feedback rápido
+    bool isHealing = false; // Corrigido de isHealed para isHealing conforme o padrão
 
+    // Funções de utilidade
+    void handleHealFlash();
     void updateProjectiles(float deltaTime, const sf::FloatRect& gameBounds);
     void handleHitFlash();
 };
@@ -74,7 +78,10 @@ public:
         sf::Texture& projectileTextureRef);
 
     void update(float deltaTime, sf::Vector2f playerPosition, const sf::FloatRect& gameBounds) override;
-    void heal(int amount);
+
+    // override garante que o compilador verifique se a assinatura bate com a base
+    void heal(int amount) override;
+
     void setHealth(int newHealth);
     void setProjectileTextureRect(const sf::IntRect& rect);
 
@@ -104,6 +111,10 @@ class Bishop_ALL : public EnemyBase {
 public:
     Bishop_ALL(std::vector<sf::Texture>& walkTextures);
     void update(float deltaTime, sf::Vector2f playerPosition, const sf::FloatRect& gameBounds) override;
+
+    // Bishop geralmente não se autocura, mas precisa implementar a interface virtual
+    void heal(int amount) override { /* Opcional: Bishop se curar também */ }
+
     bool shouldHealDemon() const;
     void resetHealFlag();
 
