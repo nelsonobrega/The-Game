@@ -106,7 +106,7 @@ void Monstro::handleStates(float deltaTime, sf::Vector2f playerPos) {
         else if (stateTimer < 1.4f) {
             setFrame(1, 4);
             sprite->setScale(sf::Vector2f(flip * 0.95f, baseScale * 1.1f));
-            if (animStep == 0) { spawnTears(18, false); animStep = 1; }
+            if (animStep == 0) { spawnTears(14, false); animStep = 1; }
         }
         else {
             state = MonstroState::Cooldown;
@@ -140,7 +140,7 @@ void Monstro::handleStates(float deltaTime, sf::Vector2f playerPos) {
         }
         else {
             sprite->setPosition(groundPos);
-            spawnTears(55, true);
+            spawnTears(40, true);
             state = MonstroState::Cooldown;
             stateTimer = 0.0f;
         }
@@ -164,7 +164,7 @@ void Monstro::update(float deltaTime, sf::Vector2f playerPosition, const sf::Flo
     stateTimer += deltaTime;
     handleStates(deltaTime, playerPosition);
 
-    float maxRange = 980.f; // RANGE DE 980px
+    float maxRange = 769.f; // RANGE DE 980px
 
     for (auto it = projectiles.begin(); it != projectiles.end();) {
         float speed = 480.f;

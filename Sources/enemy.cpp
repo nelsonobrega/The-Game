@@ -18,10 +18,7 @@ EnemyBase::EnemyBase() {
     hitFlashDuration = sf::seconds(player_cfg.stats.hit_flash_duration);
 }
 
-// Implementação da função virtual de cura na BASE
 void EnemyBase::heal(int amount) {
-    // A lógica específica de vida máxima fica nas classes filhas ou 
-    // pode ser generalizada aqui se houver um max_health na base.
     isHealing = true;
     healFlashClock.restart();
     if (sprite) sprite->setColor(sf::Color::Green);
@@ -55,7 +52,6 @@ void EnemyBase::handleHitFlash() {
         sprite->setColor(sf::Color::Red);
     }
     else {
-        // Se não estiver no meio de uma cura, volta para branco
         if (!isHealing) {
             sprite->setColor(sf::Color::White);
         }
@@ -97,7 +93,6 @@ void EnemyBase::draw(sf::RenderWindow& window) {
     window.draw(*sprite);
 }
 
-
 // --- Implementações de Demon_ALL ---
 
 Demon_ALL::Demon_ALL(
@@ -105,7 +100,8 @@ Demon_ALL::Demon_ALL(
     std::vector<sf::Texture>& walkUp,
     std::vector<sf::Texture>& walkLeft,
     std::vector<sf::Texture>& walkRight,
-    sf::Texture& projectileTextureRef)
+    sf::Texture& projectileTextureRef,
+    sf::Vector2f spawnPos)
     : EnemyBase()
 {
     const auto& config = ConfigManager::getInstance().getConfig().demon;
@@ -130,7 +126,7 @@ Demon_ALL::Demon_ALL(
     if (textures_walk_down && !textures_walk_down->empty()) {
         sprite.emplace(textures_walk_down->at(0));
         sprite->setScale(sf::Vector2f(config.visual.scale, config.visual.scale));
-        sprite->setPosition({ config.spawn.start_position_x, config.spawn.start_position_y });
+        sprite->setPosition(spawnPos);
         sprite->setOrigin(sf::Vector2f(config.visual.origin_x, config.visual.origin_y));
     }
 
@@ -150,8 +146,6 @@ void Demon_ALL::setHealth(int newHealth) {
 void Demon_ALL::heal(int amount) {
     const int MAX_HEALTH = ConfigManager::getInstance().getConfig().demon.stats.max_health;
     health = std::min(MAX_HEALTH, health + amount);
-
-    // Chama o comportamento de flash da base
     EnemyBase::heal(0);
 }
 
@@ -273,7 +267,7 @@ void Demon_ALL::update(float deltaTime, sf::Vector2f playerPosition, const sf::F
 
 // --- Implementações de Bishop_ALL ---
 
-Bishop_ALL::Bishop_ALL(std::vector<sf::Texture>& walkTextures)
+Bishop_ALL::Bishop_ALL(std::vector<sf::Texture>& walkTextures, sf::Vector2f spawnPos)
     : EnemyBase()
 {
     const auto& config = ConfigManager::getInstance().getConfig().bishop;
@@ -287,10 +281,12 @@ Bishop_ALL::Bishop_ALL(std::vector<sf::Texture>& walkTextures)
     lateral_bias_strength = config.movement.lateral_bias_strength;
     textures_idle = &walkTextures;
 
+    currentVelocity = { 0.f, 0.f };
+
     if (textures_idle && !textures_idle->empty()) {
         sprite.emplace(textures_idle->at(0));
         sprite->setScale(sf::Vector2f(config.visual.scale, config.visual.scale));
-        sprite->setPosition({ config.spawn.start_position_x, config.spawn.start_position_y });
+        sprite->setPosition(spawnPos);
         sprite->setOrigin(sf::Vector2f(config.visual.origin_x, config.visual.origin_y));
     }
 }
@@ -346,26 +342,36 @@ void Bishop_ALL::update(float deltaTime, sf::Vector2f playerPosition, const sf::
 
     sf::Vector2f currentPos = sprite->getPosition();
     sf::Vector2f diff = playerPosition - currentPos;
+
     sf::Vector2f flee = -diff;
-    float length = std::sqrtf(flee.x * flee.x + flee.y * flee.y);
-    if (length > 0.0f) flee /= length;
+    float distToPlayer = std::sqrtf(flee.x * flee.x + flee.y * flee.y);
+    if (distToPlayer > 0.0f) flee /= distToPlayer;
 
     float center_Y = gameBounds.position.y + gameBounds.size.y / 2.f;
     sf::Vector2f centerPull = { 0.f, center_Y - currentPos.y };
-    float pullLength = std::sqrtf(centerPull.x * centerPull.x + centerPull.y * centerPull.y);
-    if (pullLength > 0.0f) {
-        centerPull /= pullLength;
+    float pullLen = std::sqrtf(centerPull.x * centerPull.x + centerPull.y * centerPull.y);
+    if (pullLen > 0.0f) {
+        centerPull /= pullLen;
         centerPull *= center_pull_weight;
     }
 
     sf::Vector2f lateralMove = { -flee.y, flee.x };
     float lateralBias = std::sin(healClock.getElapsedTime().asSeconds() * lateral_bias_frequency) * lateral_bias_strength;
-    sf::Vector2f finalMove = flee + (lateralMove * lateralBias) + centerPull;
 
-    float finalLength = std::sqrtf(finalMove.x * finalMove.x + finalMove.y * finalMove.y);
-    if (finalLength > 0.0f) finalMove /= finalLength;
+    sf::Vector2f targetVelocity = flee + (lateralMove * lateralBias) + centerPull;
+    float targetLen = std::sqrtf(targetVelocity.x * targetVelocity.x + targetVelocity.y * targetVelocity.y);
+    if (targetLen > 0.0f) targetVelocity /= targetLen;
 
-    sprite->move(finalMove * deltaTime * speed);
+    float currentMaxSpeed = speed;
+    if (isChanting) currentMaxSpeed *= 0.15f;
+
+    targetVelocity *= currentMaxSpeed;
+
+    float lerpFactor = isChanting ? 2.0f : 4.5f;
+    currentVelocity.x += (targetVelocity.x - currentVelocity.x) * lerpFactor * deltaTime;
+    currentVelocity.y += (targetVelocity.y - currentVelocity.y) * lerpFactor * deltaTime;
+
+    sprite->move(currentVelocity * deltaTime);
 
     handleAnimation(deltaTime);
     handleHitFlash();

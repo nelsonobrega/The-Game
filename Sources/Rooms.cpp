@@ -103,8 +103,17 @@ void Room::spawnEnemies(std::vector<sf::Texture>& dDown, std::vector<sf::Texture
     if (type == RoomType::SafeZone || type == RoomType::Treasure || cleared) return;
     if (!demons.empty() || !bishops.empty() || !chubbies.empty() || !monstros.empty()) return;
 
-    const auto& dConfigTear = ConfigManager::getInstance().getConfig().projectile_textures.demon_tear;
+    const auto& config = ConfigManager::getInstance().getConfig();
+    const auto& dConfigTear = config.projectile_textures.demon_tear;
     sf::IntRect demonTearRect({ dConfigTear.x, dConfigTear.y }, { dConfigTear.width, dConfigTear.height });
+
+    // Função auxiliar para gerar posição aleatória segura dentro da sala
+    auto getRandomPos = [&]() -> sf::Vector2f {
+        float margin = 200.f; // Margem para não nascer colado na parede/porta
+        float rx = margin + static_cast<float>(rand() % static_cast<int>(gameBounds.size.x - margin * 2));
+        float ry = margin + static_cast<float>(rand() % static_cast<int>(gameBounds.size.y - margin * 2));
+        return { gameBounds.position.x + rx, gameBounds.position.y + ry };
+        };
 
     if (type == RoomType::Boss) {
         sf::Texture& monstroTex = AssetManager::getInstance().getTexture("MonstroSheet");
@@ -122,26 +131,21 @@ void Room::spawnEnemies(std::vector<sf::Texture>& dDown, std::vector<sf::Texture
             int count = 2 + (rand() % 2);
             for (int i = 0; i < count; i++) {
                 auto chubby = std::make_unique<Chubby>(cSheet, cProj);
-                float margin = 200.f;
-                float rx = margin + static_cast<float>(rand() % static_cast<int>(gameBounds.size.x - margin * 2));
-                float ry = margin + static_cast<float>(rand() % static_cast<int>(gameBounds.size.y - margin * 2));
-                chubby->setPosition({ gameBounds.position.x + rx, gameBounds.position.y + ry });
+                chubby->setPosition(getRandomPos());
                 chubbies.push_back(std::move(chubby));
             }
-            // Agora spawna Bishop na sala de Chubbies também
-            bishops.push_back(std::make_unique<Bishop_ALL>(bTex));
         }
         else { // 60% Sala de Demons
-            auto demon = std::make_unique<Demon_ALL>(dDown, dUp, dLeft, dRight, dProj);
+            // Agora passando a posição aleatória no construtor
+            auto demon = std::make_unique<Demon_ALL>(dDown, dUp, dLeft, dRight, dProj, getRandomPos());
             demon->setProjectileTextureRect(demonTearRect);
             demons.push_back(std::move(demon));
-            // Bishop padrão na sala de Demons
-            bishops.push_back(std::make_unique<Bishop_ALL>(bTex));
         }
 
-        // Ajusta posição do Bishop (evita nascer em cima do spawn do player)
-        if (!bishops.empty()) {
-            bishops.back()->setPosition({ gameBounds.position.x + gameBounds.size.x / 2.f, gameBounds.position.y + 150.f });
+        // --- SPAWN DO BISHOP (Usando a chance da Config) ---
+        // Agora o Bishop não é mais obrigatório, ele segue a % do JSON
+        if ((rand() % 100) < config.bishop.stats.spawn_chance_percent) {
+            bishops.push_back(std::make_unique<Bishop_ALL>(bTex, getRandomPos()));
         }
     }
 }
