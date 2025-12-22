@@ -9,18 +9,28 @@
 #include <algorithm>
 
 void Game::loadGameAssets() {
+    // --- ISAAC ---
     assets.loadAnimation("I_Down", "Isaac/Front_Isaac", "F", 9, "V1.png");
     assets.loadAnimation("I_Up", "Isaac/Back_Isaac", "B", 9, "V1.png");
     assets.loadAnimation("I_Left", "Isaac/Left_Isaac", "L", 6, "V1.png");
     assets.loadAnimation("I_Right", "Isaac/Right_Isaac", "R", 6, "V1.png");
     assets.loadTexture("TearAtlas", "Images/Tears/bulletatlas.png");
 
+    // --- ITENS ---
+    assets.loadTexture("Speed Ball", "Images/Items/Speed Ball.png");
+    assets.loadTexture("Roid Rage", "Images/Items/Roid Rage.png");
+    assets.loadTexture("Blood Bag", "Images/Items/Blood Bag.png");
+    assets.loadTexture("8 inch nail", "Images/Items/8inchnails_tears.png");
+    assets.loadTexture("8inch_tears", "Images/Tears/8inchnails_tears.png");
+
+    // --- INIMIGOS ---
     assets.loadAnimation("D_Down", "Demon/Front_Demon", "F", 8, "D.png");
     assets.loadAnimation("D_Up", "Demon/Back_Demon", "B", 8, "D.png");
     assets.loadAnimation("D_Left", "Demon/Left_Demon", "L", 8, "D.png");
     assets.loadAnimation("D_Right", "Demon/Right_Demon", "R", 8, "D.png");
     assets.loadAnimation("Bishop", "Bishop", "B", 14, ".png");
 
+    // --- TEXTURAS GERAIS ---
     assets.loadTexture("ChubbySheet", "Images/Chubby/Chubby.png");
     assets.loadTexture("Door", "Images/Background/Doors.png");
     assets.loadTexture("HeartF", "Images/UI/Life/Full.png");
@@ -28,6 +38,7 @@ void Game::loadGameAssets() {
     assets.loadTexture("HeartE", "Images/UI/Life/Empty.png");
     assets.loadTexture("BasementCorner", "Images/Background/Basement_sheet.png");
     assets.loadTexture("MonstroSheet", "Images/Monstro(BOSS)/Monstro.png");
+    assets.loadTexture("Altar", "Images/Items/Item_altar.png");
 }
 
 void Game::updateRoomVisuals() {
@@ -43,7 +54,6 @@ void Game::updateRoomVisuals() {
     if (curr->getType() == RoomType::Boss && !curr->isCleared()) {
         showBossTitle = true;
         bossTitleTimer = 0.0f;
-
         bossIntroBackground.setSize({ 1920.f, 1080.f });
         bossIntroBackground.setFillColor(sf::Color::Black);
 
@@ -142,6 +152,7 @@ void Game::update(float deltaTime) {
     const auto& config = ConfigManager::getInstance().getConfig();
     sf::Vector2f playerPosition = Isaac->getPosition();
 
+    // --- TRANSIÇÃO DE SALA ---
     if (roomManager->isTransitioning()) {
         Room* roomBefore = roomManager->getCurrentRoom();
         roomManager->updateTransition(deltaTime, playerPosition);
@@ -155,6 +166,7 @@ void Game::update(float deltaTime) {
     Isaac->update(deltaTime, gameBounds);
     roomManager->update(deltaTime, Isaac->getPosition());
 
+    // --- PORTAS ---
     DoorDirection doorHit = roomManager->checkPlayerAtDoor(Isaac->getGlobalBounds());
     if (doorHit != DoorDirection::None) {
         roomManager->requestTransition(doorHit);
@@ -163,6 +175,35 @@ void Game::update(float deltaTime) {
 
     Room* currentRoom = roomManager->getCurrentRoom();
     if (currentRoom) {
+        // --- COLISÃO COM ITEM (LOGICA ATUALIZADA) ---
+        if (currentRoom->getType() == RoomType::Treasure) {
+            auto& itemOpt = currentRoom->getRoomItem();
+            if (itemOpt.has_value() && !itemOpt->isCollected()) {
+                if (checkCollision(Isaac->getGlobalBounds(), itemOpt->getBounds())) {
+                    ItemType type = itemOpt->getType();
+
+                    if (type == ItemType::SPEED_BALL) {
+                        Isaac->addSpeed(1.4f);
+                    }
+                    else if (type == ItemType::ROID_RAGE) {
+                        Isaac->addSpeed(1.2f);
+                        // Aqui você poderia adicionar bônus de dano se a classe suportar
+                    }
+                    else if (type == ItemType::SQUEEZY_BLOOD_BAG) {
+                        // Aumenta 2 recipientes (containers) e cura 4 de vida
+                        Isaac->increaseMaxHealth(2);
+                        Isaac->heal(4);
+                    }
+                    else if (type == ItemType::EIGHT_INCH_NAIL) {
+                        // Troca textura para prego
+                        Isaac->setTearTexture(assets.getTexture("8inch_tears"), sf::IntRect({ 12,12 }, { 9,7 }));
+                    }
+
+                    itemOpt->collect();
+                }
+            }
+        }
+
         auto& isaacProjectiles = Isaac->getProjectiles();
         auto& demons = currentRoom->getDemons();
         auto& bishops = currentRoom->getBishops();
@@ -171,94 +212,31 @@ void Game::update(float deltaTime) {
 
         sf::FloatRect isaacBounds = Isaac->getGlobalBounds();
 
-        // --- LÓGICA DE CURA DO BISHOP ---
-        for (auto& b : bishops) {
-            if (b->getHealth() > 0 && b->shouldHealDemon()) {
-                // Cura Demons
-                for (auto& d : demons) {
-                    if (d->getHealth() > 0) d->heal(4);
-                }
-                // Cura Chubbies
-                for (auto& c : chubbies) {
-                    if (c->getHealth() > 0) c->heal(4);
-                }
-                b->resetHealFlag();
-            }
-        }
-
-        // Colisões Isaac -> Inimigos
+        // --- COLISÕES ISAAC -> INIMIGOS ---
         for (auto itTear = isaacProjectiles.begin(); itTear != isaacProjectiles.end();) {
             bool hit = false;
             sf::FloatRect tearBounds = itTear->sprite.getGlobalBounds();
 
-            for (auto& m : monstros) {
-                if (m->getHealth() > 0 && checkCollision(tearBounds, m->getGlobalBounds())) {
-                    m->takeDamage(config.player.stats.damage); hit = true; break;
-                }
-            }
-            if (!hit) {
-                for (auto& d : demons) {
-                    if (d->getHealth() > 0 && checkCollision(tearBounds, d->getGlobalBounds())) {
-                        d->takeDamage(config.player.stats.damage); hit = true; break;
-                    }
-                }
-            }
-            if (!hit) {
-                for (auto& b : bishops) {
-                    if (b->getHealth() > 0 && checkCollision(tearBounds, b->getGlobalBounds())) {
-                        b->takeDamage(config.player.stats.damage); hit = true; break;
-                    }
-                }
-            }
-            if (!hit) {
-                for (auto& c : chubbies) {
-                    if (c->getHealth() > 0 && checkCollision(tearBounds, c->getGlobalBounds())) {
-                        c->takeDamage(config.player.stats.damage); hit = true; break;
-                    }
-                }
-            }
+            for (auto& m : monstros) if (m->getHealth() > 0 && checkCollision(tearBounds, m->getGlobalBounds())) { m->takeDamage(config.player.stats.damage); hit = true; break; }
+            if (!hit) for (auto& d : demons) if (d->getHealth() > 0 && checkCollision(tearBounds, d->getGlobalBounds())) { d->takeDamage(config.player.stats.damage); hit = true; break; }
+            if (!hit) for (auto& b : bishops) if (b->getHealth() > 0 && checkCollision(tearBounds, b->getGlobalBounds())) { b->takeDamage(config.player.stats.damage); hit = true; break; }
+            if (!hit) for (auto& c : chubbies) if (c->getHealth() > 0 && checkCollision(tearBounds, c->getGlobalBounds())) { c->takeDamage(config.player.stats.damage); hit = true; break; }
 
             if (hit) itTear = isaacProjectiles.erase(itTear);
             else ++itTear;
         }
 
-        // Colisões Inimigos -> Isaac
+        // --- COLISÕES INIMIGOS -> ISAAC ---
         for (auto& m : monstros) {
             if (m->getHealth() <= 0) continue;
-            if (checkCollision(isaacBounds, m->getGlobalBounds())) {
-                int dmg = (m->getState() == MonstroState::Falling) ? 2 : 1;
-                Isaac->takeDamage(dmg);
-            }
-            auto& mProj = m->getProjectiles();
-            for (auto itP = mProj.begin(); itP != mProj.end();) {
-                if (checkCollision(isaacBounds, itP->sprite.getGlobalBounds())) {
-                    Isaac->takeDamage(1); itP = mProj.erase(itP);
-                }
-                else ++itP;
-            }
+            if (checkCollision(isaacBounds, m->getGlobalBounds())) Isaac->takeDamage((m->getState() == MonstroState::Falling) ? 2 : 1);
         }
-
         for (auto& d : demons) {
             if (d->getHealth() <= 0) continue;
             if (checkCollision(isaacBounds, d->getGlobalBounds())) Isaac->takeDamage(1);
-            auto& dProj = d->getProjectiles();
-            for (auto itP = dProj.begin(); itP != dProj.end();) {
-                if (checkCollision(isaacBounds, itP->sprite.getGlobalBounds())) {
-                    Isaac->takeDamage(1); itP = dProj.erase(itP);
-                }
-                else ++itP;
-            }
         }
-
-        for (auto& b : bishops) {
-            if (b->getHealth() > 0 && checkCollision(isaacBounds, b->getGlobalBounds())) Isaac->takeDamage(1);
-        }
-
-        for (auto& c : chubbies) {
-            if (c->getHealth() <= 0) continue;
-            if (checkCollision(isaacBounds, c->getGlobalBounds())) Isaac->takeDamage(1);
-            if (c->BoomerangActive() && checkCollision(isaacBounds, c->getBoomerangBounds())) Isaac->takeDamage(2);
-        }
+        for (auto& b : bishops) if (b->getHealth() > 0 && checkCollision(isaacBounds, b->getGlobalBounds())) Isaac->takeDamage(1);
+        for (auto& c : chubbies) if (c->getHealth() > 0 && checkCollision(isaacBounds, c->getGlobalBounds())) Isaac->takeDamage(1);
     }
 
     if (Isaac->getHealth() <= 0) window.close();
@@ -276,15 +254,28 @@ void Game::render() {
     if (roomManager) roomManager->draw(window);
     if (Isaac) Isaac->draw(window);
 
+    // --- UI VIDA DINÂMICA (CORREÇÃO AQUI) ---
     if (Isaac && heartSpriteF) {
         int hp = Isaac->getHealth();
+        // Soma o HP base do config com o bônus acumulado de itens
+        int totalMaxHP = (config.game.ui.max_hearts * 2) + Isaac->getMaxHealthBonus();
+
         float x = config.game.ui.heart_ui_x;
-        for (int i = 0; i < config.game.ui.max_hearts; ++i) {
-            sf::Sprite* s = (hp >= 2) ? &*heartSpriteF : (hp == 1 ? &*heartSpriteH : &*heartSpriteE);
-            s->setPosition({ x, config.game.ui.heart_ui_y });
+        float y = config.game.ui.heart_ui_y;
+
+        for (int i = 0; i < totalMaxHP / 2; ++i) {
+            sf::Sprite* s;
+            if (hp >= 2) { s = &*heartSpriteF; hp -= 2; }
+            else if (hp == 1) { s = &*heartSpriteH; hp -= 1; }
+            else { s = &*heartSpriteE; }
+
+            s->setPosition({ x, y });
             s->setScale({ config.game.ui.heart_scale, config.game.ui.heart_scale });
             window.draw(*s);
-            x += config.game.ui.heart_spacing; hp -= 2;
+
+            x += config.game.ui.heart_spacing;
+            // Opcional: Quebra de linha a cada 6 corações
+            if ((i + 1) % 6 == 0) { x = config.game.ui.heart_ui_x; y += 40.f; }
         }
     }
 

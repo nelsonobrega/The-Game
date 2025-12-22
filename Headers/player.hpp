@@ -1,17 +1,16 @@
 #ifndef PLAYER_HPP
 #define PLAYER_HPP
 
-#include "SFML/Graphics.hpp"
+#include <SFML/Graphics.hpp>
 #include <vector>
 #include <optional>
-#include <iostream>
-#include "ConfigManager.hpp" 
-#include "Utils.hpp" 
+#include <string>
 
+// Estrutura para os projéteis (Lágrimas/Pregos)
 struct Projectile {
     sf::Sprite sprite;
     sf::Vector2f direction;
-    float distanceTraveled;
+    float distanceTraveled = 0.f;
 };
 
 class Player_ALL {
@@ -21,70 +20,69 @@ public:
         sf::Texture& hitTextureRef,
         std::vector<sf::Texture>& walkUpTextures,
         std::vector<sf::Texture>& walkLeftTextures,
-        std::vector<sf::Texture>& walkRightTextures);
+        std::vector<sf::Texture>& walkRightTextures
+    );
 
-    // --- NOVOS MÉTODOS PARA O ROOMMANAGER ---
-    void setPosition(const sf::Vector2f& newPosition);
-    void setSpeedMultiplier(float multiplier);
-    // ----------------------------------------
-
-    void setProjectileTextureRect(const sf::IntRect& rect);
-
-    void takeDamage(int amount);
+    // Ciclo de Vida
     void update(float deltaTime, const sf::FloatRect& gameBounds);
     void draw(sf::RenderWindow& window);
 
+    // Getters
     sf::Vector2f getPosition() const;
-    int getHealth() const;
-    std::vector<Projectile>& getProjectiles();
     sf::FloatRect getGlobalBounds() const;
+    int getHealth() const;
+    int getMaxHealthBonus() const; // Adicionado aqui
+    std::vector<Projectile>& getProjectiles();
 
-    std::vector<sf::Texture>* textures_walk_up = nullptr;
-    std::vector<sf::Texture>* textures_walk_left = nullptr;
-    std::vector<sf::Texture>* textures_walk_right = nullptr;
+    // Setters e Comandos
+    void setPosition(const sf::Vector2f& newPosition);
+    void setSpeedMultiplier(float multiplier);
+    void takeDamage(int amount);
+    void setProjectileTextureRect(const sf::IntRect& rect);
+
+    // --- MÉTODOS PARA ITENS ---
+    void addSpeed(float amount);
+    void heal(int amount);
+    void increaseMaxHealth(int containers); // Adicionado aqui
+    void setTearTexture(const sf::Texture& texture, const sf::IntRect& rect);
 
 private:
-    std::optional<sf::Sprite> Isaac;
-    float invulTimer = 0.f;
-
-    // VARIÁVEIS CARREGADAS DA CONFIGURAÇÃO
-    int health = 0;
-    float speed = 0.f; // Velocidade base
-    float isaacHitSpeed = 0.f;
-    float maxHitDistance = 0.f;
-    sf::Time hitFlashDuration;
-
-    // Intervalo mínimo entre aplicações de dano (permite múltiplos projéteis)
-    sf::Time minDamageInterval = sf::seconds(0.02f);
-
-    // NOVO: Multiplicador de velocidade (1.0 = normal, 0.0 = parado)
-    float speedMultiplier_ = 1.0f;
-
-    // VARIÁVEIS RESTAURADAS COMO CONSTANTES
-    const float frame_duration = 0.1f;
-    sf::Time cooldownTime;
-    const int frames_vertical = 9;
-    const int frames_horizontal = 6;
-
-
-    std::vector<sf::Texture>* textures_walk_down = nullptr;
-    sf::Texture* hitTexture = nullptr;
-    sf::IntRect projectileTextureRect;
-
-    std::vector<sf::Texture>* last_animation_set = nullptr;
-    int current_frame = 0;
-    float animation_time = 0.0f;
-
-    sf::Clock cooldownClock;
-    sf::Clock hitClock;
-    bool isHit = false;
-
-    std::vector<Projectile> projectiles;
-
+    // Lógicas internas
     void handleMovementAndAnimation(float deltaTime);
     void handleAttack();
     void updateProjectiles(float deltaTime, const sf::FloatRect& gameBounds);
     void handleHitFlash(float deltaTime);
+
+    // Propriedades do Personagem
+    std::optional<sf::Sprite> Isaac;
+    int health;
+    int maxHealthBonus; // Variável para o Blood Bag
+    float speed;
+    float speedMultiplier_;
+
+    // Ataque
+    float isaacHitSpeed;
+    float maxHitDistance;
+    sf::Clock cooldownClock;
+    sf::Time cooldownTime;
+    sf::IntRect projectileTextureRect;
+    std::vector<Projectile> projectiles;
+    sf::Texture* hitTexture;
+
+    // Animação e Dano
+    bool isHit = false;
+    sf::Clock hitClock;
+    sf::Time hitFlashDuration;
+    sf::Time minDamageInterval;
+
+    std::vector<sf::Texture>* textures_walk_down;
+    std::vector<sf::Texture>* textures_walk_up;
+    std::vector<sf::Texture>* textures_walk_left;
+    std::vector<sf::Texture>* textures_walk_right;
+    std::vector<sf::Texture>* last_animation_set;
+
+    int current_frame = 0;
+    float animation_time = 0.0f;
 };
 
-#endif // PLAYER_HPP
+#endif

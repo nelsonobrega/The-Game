@@ -9,35 +9,13 @@
 #include <algorithm>
 #include "enemy.hpp"
 #include "Chubby.hpp"
-#include "Monstro.hpp" // Adicionado para reconhecer a classe Monstro
+#include "Monstro.hpp"
+#include "Items.hpp" 
 
-enum class DoorDirection {
-    North,
-    South,
-    East,
-    West,
-    None
-};
-
-enum class RoomType {
-    SafeZone,
-    Normal,
-    Boss,
-    Treasure
-};
-
-enum class DoorType {
-    Normal,
-    Boss,
-    Treasure
-};
-
-enum class DoorState {
-    Open,
-    Closing,
-    Closed,
-    Opening
-};
+enum class DoorDirection { North, South, East, West, None };
+enum class RoomType { SafeZone, Normal, Boss, Treasure };
+enum class DoorType { Normal, Boss, Treasure };
+enum class DoorState { Open, Closing, Closed, Opening };
 
 struct Door {
     DoorDirection direction = DoorDirection::None;
@@ -61,11 +39,9 @@ class Room {
 public:
     Room(int id, RoomType type, const sf::FloatRect& gameBounds);
 
-    // Gestão de Portas
     void addDoor(DoorDirection direction, DoorType doorType, sf::Texture& doorSpritesheet);
     void connectDoor(DoorDirection direction, int targetRoomID);
 
-    // Spawn de Inimigos (Agora inclui Monstro)
     void spawnEnemies(
         std::vector<sf::Texture>& demonWalkDown,
         std::vector<sf::Texture>& demonWalkUp,
@@ -77,11 +53,9 @@ public:
         sf::Texture& chubbyProjSheet
     );
 
-    // Ciclo de Vida
     void update(float deltaTime, sf::Vector2f playerPosition);
     void draw(sf::RenderWindow& window);
 
-    // Getters Básicos
     int getID() const { return roomID; }
     RoomType getType() const { return type; }
     bool isCleared() const { return cleared; }
@@ -89,19 +63,23 @@ public:
     int getDoorLeadsTo(DoorDirection direction) const;
     const std::vector<Door>& getDoors() const { return doors; }
 
-    // GETTERS PARA O GAME.CPP
     std::vector<std::unique_ptr<Demon_ALL>>& getDemons() { return demons; }
     std::vector<std::unique_ptr<Bishop_ALL>>& getBishops() { return bishops; }
     std::vector<std::unique_ptr<Chubby>>& getChubbies() { return chubbies; }
-    std::vector<std::unique_ptr<Monstro>>& getMonstros() { return monstros; } // Adicionado
+    std::vector<std::unique_ptr<Monstro>>& getMonstros() { return monstros; }
 
-    // Auxiliares de Gameplay
+    // --- CORREÇÃO AQUI: Agora aceita itemTex E altarTex ---
+    void setRoomItem(ItemType type, sf::Vector2f pos, const sf::Texture& itemTex, const sf::Texture& altarTex) {
+        roomItem.emplace(type, pos, itemTex, altarTex);
+    }
+
+    std::optional<Item>& getRoomItem() { return roomItem; }
+
     sf::Vector2f getPlayerSpawnPosition(DoorDirection doorDirection) const;
     void checkIfCleared();
     void openDoors();
     void closeDoors();
 
-    // Visual da Sala
     void setCornerTextureRect(const sf::IntRect& rect) { cornerTextureRect = rect; }
     sf::IntRect getCornerTextureRect() const { return cornerTextureRect; }
 
@@ -116,15 +94,16 @@ private:
     sf::FloatRect gameBounds;
     std::vector<Door> doors;
 
-    // LISTAS DE INIMIGOS
     std::vector<std::unique_ptr<Demon_ALL>> demons;
     std::vector<std::unique_ptr<Bishop_ALL>> bishops;
     std::vector<std::unique_ptr<Chubby>> chubbies;
-    std::vector<std::unique_ptr<Monstro>> monstros; // Adicionado
+    std::vector<std::unique_ptr<Monstro>> monstros;
+
+    std::optional<Item> roomItem;
 
     bool cleared;
     bool doorsOpened;
     sf::IntRect cornerTextureRect;
 };
 
-#endif // ROOM_HPP
+#endif

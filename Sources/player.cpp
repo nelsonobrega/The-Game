@@ -6,16 +6,45 @@
 #include <cmath>
 #include <SFML/Graphics/RenderWindow.hpp>
 
-// --- FUNÇÃO DE COLISÃO MANUAL LOCAL ---
 static bool checkCollision(const sf::FloatRect& rect1, const sf::FloatRect& rect2) {
     bool x_overlap = rect1.position.x < rect2.position.x + rect2.size.x &&
         rect1.position.x + rect1.size.x > rect2.position.x;
-
     bool y_overlap = rect1.position.y < rect2.position.y + rect2.size.y &&
         rect1.position.y + rect1.size.y > rect2.position.y;
-
     return x_overlap && y_overlap;
 }
+
+// --- MÉTODOS DE STATUS E ITENS ---
+
+void Player_ALL::addSpeed(float amount) {
+    speed *= amount;
+    std::cout << "Speed increased! New speed: " << speed << std::endl;
+}
+
+void Player_ALL::increaseMaxHealth(int containers) {
+    // Cada container de coração no Isaac vale 2 de HP
+    maxHealthBonus += (containers * 2);
+    std::cout << "Max Health capacity increased by " << containers << " hearts!" << std::endl;
+}
+
+void Player_ALL::heal(int amount) {
+    const auto& config = ConfigManager::getInstance().getConfig();
+
+    // O HP máximo agora é o valor base do config + o bónus dos itens coletados
+    int baseMaxHP = config.game.ui.max_hearts * 2;
+    int currentLimit = baseMaxHP + maxHealthBonus;
+
+    health = std::min(currentLimit, health + amount);
+    std::cout << "Healed! Health: " << health << " / " << currentLimit << std::endl;
+}
+
+void Player_ALL::setTearTexture(const sf::Texture& texture, const sf::IntRect& rect) {
+    hitTexture = const_cast<sf::Texture*>(&texture);
+    projectileTextureRect = rect;
+    std::cout << "Projectile texture updated (8 Inch Nail effect)!" << std::endl;
+}
+
+// -------------------------------
 
 void Player_ALL::setPosition(const sf::Vector2f& newPosition) {
     if (Isaac) Isaac->setPosition(newPosition);
@@ -25,14 +54,13 @@ void Player_ALL::setSpeedMultiplier(float multiplier) {
     speedMultiplier_ = std::max(0.0f, multiplier);
 }
 
-// --- CONSTRUTOR ---
 Player_ALL::Player_ALL(
     std::vector<sf::Texture>& walkDownTextures,
     sf::Texture& hitTextureRef,
     std::vector<sf::Texture>& walkUpTextures,
     std::vector<sf::Texture>& walkLeftTextures,
     std::vector<sf::Texture>& walkRightTextures)
-    : speedMultiplier_(1.0f)
+    : speedMultiplier_(1.0f), maxHealthBonus(0) // Inicializa o bónus em 0
 {
     const auto& config = ConfigManager::getInstance().getConfig();
     const auto& stats = config.player.stats;
@@ -44,14 +72,8 @@ Player_ALL::Player_ALL(
     speed = stats.speed;
     isaacHitSpeed = attack.projectile_speed;
     maxHitDistance = attack.projectile_max_distance;
-
-    // Tempo que o Isaac fica a piscar a vermelho
     hitFlashDuration = sf::seconds(0.5f);
-
-    // CRUCIAL: Tempo de invencibilidade total para evitar dano por frame
-    // Se não estiver no JSON, definimos 1 segundo por segurança
     minDamageInterval = sf::seconds(1.0f);
-
     cooldownTime = sf::seconds(attack.cooldown);
 
     textures_walk_down = &walkDownTextures;
@@ -77,19 +99,13 @@ void Player_ALL::setProjectileTextureRect(const sf::IntRect& rect) {
     projectileTextureRect = rect;
 }
 
-// --- LÓGICA DE DANO CORRIGIDA ---
 void Player_ALL::takeDamage(int amount) {
-    // Se isHit é verdadeiro, verificamos se o tempo de invencibilidade já passou
-    if (isHit) {
-        if (hitClock.getElapsedTime() < minDamageInterval) {
-            return; // Ignora o dano se estiver no intervalo de segurança
-        }
-    }
+    if (isHit && hitClock.getElapsedTime() < minDamageInterval) return;
 
     if (health > 0) {
         health = std::max(0, health - amount);
         isHit = true;
-        hitClock.restart(); // Começa a contar o tempo de invulnerabilidade
+        hitClock.restart();
         std::cout << "Isaac took damage! Health: " << health << std::endl;
     }
 }
@@ -100,6 +116,10 @@ sf::Vector2f Player_ALL::getPosition() const {
 
 int Player_ALL::getHealth() const {
     return health;
+}
+
+int Player_ALL::getMaxHealthBonus() const {
+    return maxHealthBonus;
 }
 
 std::vector<Projectile>& Player_ALL::getProjectiles() {
@@ -122,19 +142,16 @@ void Player_ALL::handleMovementAndAnimation(float deltaTime) {
     const int frames_v = animConfig.frames_vertical;
     const int frames_h = animConfig.frames_horizontal;
 
-    // Teclas de Movimento (WASD)
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::S)) move += {0.f, 1.f};
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::W)) move += {0.f, -1.f};
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::A)) move += {-1.f, 0.f};
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Scancode::D)) move += {1.f, 0.f};
 
-    // Define animação baseada no movimento
     if (move.y > 0) { current_animation_set = textures_walk_down; current_total_frames = frames_v; is_moving = true; }
     else if (move.y < 0) { current_animation_set = textures_walk_up; current_total_frames = frames_v; is_moving = true; }
     else if (move.x < 0) { current_animation_set = textures_walk_left; current_total_frames = frames_h; is_moving = true; }
     else if (move.x > 0) { current_animation_set = textures_walk_right; current_total_frames = frames_h; is_moving = true; }
 
-    // Normalização
     float length = std::sqrt(move.x * move.x + move.y * move.y);
     if (length > 1.0f) move /= length;
 
@@ -142,7 +159,6 @@ void Player_ALL::handleMovementAndAnimation(float deltaTime) {
         Isaac->move(move * deltaTime * speed * speedMultiplier_);
     }
 
-    // Update de frames
     if (is_moving && current_animation_set) {
         if (current_animation_set != last_animation_set) {
             current_frame = 0;
@@ -153,7 +169,7 @@ void Player_ALL::handleMovementAndAnimation(float deltaTime) {
         if (animation_time >= animConfig.frame_duration) {
             animation_time = 0;
             current_frame = (current_frame + 1) % current_total_frames;
-            if (current_frame < current_animation_set->size())
+            if (current_frame < (int)current_animation_set->size())
                 Isaac->setTexture(current_animation_set->at(current_frame));
         }
     }
@@ -181,7 +197,11 @@ void Player_ALL::handleAttack() {
             Projectile p = { sf::Sprite(*hitTexture), dir, 0.f };
             p.sprite.setTextureRect(projectileTextureRect);
             p.sprite.setScale({ pVis.scale, pVis.scale });
-            p.sprite.setOrigin({ pVis.origin_x, pVis.origin_y });
+
+            // Centralização aprimorada
+            sf::FloatRect localBounds = p.sprite.getLocalBounds();
+            p.sprite.setOrigin({ localBounds.size.x / 2.f, localBounds.size.y / 2.f });
+
             p.sprite.setPosition(Isaac->getPosition());
             p.sprite.setRotation(sf::degrees(rot));
             projectiles.push_back(p);
@@ -204,15 +224,13 @@ void Player_ALL::updateProjectiles(float deltaTime, const sf::FloatRect& gameBou
 
 void Player_ALL::handleHitFlash(float deltaTime) {
     if (!Isaac) return;
-
     if (isHit) {
         sf::Time elapsed = hitClock.getElapsedTime();
         if (elapsed < minDamageInterval) {
-            // Efeito visual: pisca rápido usando o tempo decorrido
             if (static_cast<int>(elapsed.asMilliseconds() / 100) % 2 == 0)
                 Isaac->setColor(sf::Color::Red);
             else
-                Isaac->setColor(sf::Color(255, 255, 255, 150)); // Transparente
+                Isaac->setColor(sf::Color(255, 255, 255, 150));
         }
         else {
             Isaac->setColor(sf::Color::White);
@@ -229,7 +247,6 @@ void Player_ALL::update(float deltaTime, const sf::FloatRect& gameBounds) {
     handleHitFlash(deltaTime);
     updateProjectiles(deltaTime, gameBounds);
 
-    // Bordas da sala
     sf::Vector2f pos = Isaac->getPosition();
     sf::FloatRect bounds = Isaac->getGlobalBounds();
     pos.x = std::clamp(pos.x, gameBounds.position.x + bounds.size.x / 2.f, gameBounds.position.x + gameBounds.size.x - bounds.size.x / 2.f);
