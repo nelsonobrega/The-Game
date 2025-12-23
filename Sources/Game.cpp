@@ -167,21 +167,18 @@ void Game::update(float deltaTime) {
 
     Room* currentRoom = roomManager->getCurrentRoom();
     if (currentRoom) {
-        // --- COLISÃO COM ITENS E ALTAR ---
+        // --- COLISÃO COM ITENS E ALTAR (Lógica Unificada) ---
         if (currentRoom->getType() == RoomType::Treasure) {
             auto& itemOpt = currentRoom->getRoomItem();
             if (itemOpt.has_value()) {
                 sf::FloatRect isaacBounds = Isaac->getGlobalBounds();
+                sf::FloatRect altarBounds = itemOpt->getAltarBounds();
 
-                // 1. Bloqueio Físico (Altar)
-                // Se o Isaac colidir com a base do altar, impedimos o movimento
-                if (checkCollision(isaacBounds, itemOpt->getAltarBounds())) {
-                    Isaac->setPosition(lastPos);
-                }
+                // Se houver colisão com o altar, verificamos coleta e bloqueamos movimento
+                if (checkCollision(isaacBounds, altarBounds)) {
 
-                // 2. Coleta do Item (Trigger)
-                if (!itemOpt->isCollected()) {
-                    if (checkCollision(isaacBounds, itemOpt->getBounds())) {
+                    // Se o item ainda não foi pego, pegamos ao encostar no altar
+                    if (!itemOpt->isCollected()) {
                         ItemType type = itemOpt->getType();
                         if (type == ItemType::SPEED_BALL) Isaac->addSpeed(1.4f);
                         else if (type == ItemType::ROID_RAGE) { Isaac->addSpeed(1.2f); Isaac->addDamage(1.5f); }
@@ -191,7 +188,11 @@ void Game::update(float deltaTime) {
                             Isaac->setTearTexture(assets.getTexture("8inch_tears"), sf::IntRect({ 12,12 }, { 9,7 }));
                         }
                         itemOpt->collect();
+                        std::cout << "Item coletado via Altar!" << std::endl;
                     }
+
+                    // Impede o Isaac de atravessar o Altar
+                    Isaac->setPosition(lastPos);
                 }
             }
         }
@@ -204,7 +205,6 @@ void Game::update(float deltaTime) {
         auto& monstros = currentRoom->getMonstros();
         sf::FloatRect isaacBounds = Isaac->getGlobalBounds();
 
-        // Lágrimas do Isaac atingindo Inimigos
         for (auto itTear = isaacProjectiles.begin(); itTear != isaacProjectiles.end();) {
             bool hit = false;
             sf::FloatRect tearBounds = itTear->sprite.getGlobalBounds();
@@ -219,7 +219,6 @@ void Game::update(float deltaTime) {
             else ++itTear;
         }
 
-        // Inimigos atingindo Isaac
         for (auto& m : monstros) {
             if (m->getHealth() <= 0) continue;
             if (checkCollision(isaacBounds, m->getGlobalBounds())) Isaac->takeDamage((m->getState() == MonstroState::Falling) ? 2 : 1);
@@ -248,7 +247,6 @@ void Game::update(float deltaTime) {
         }
     }
 
-    // Portas
     DoorDirection doorHit = roomManager->checkPlayerAtDoor(Isaac->getGlobalBounds());
     if (doorHit != DoorDirection::None) {
         roomManager->requestTransition(doorHit);

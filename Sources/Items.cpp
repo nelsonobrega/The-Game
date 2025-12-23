@@ -17,19 +17,31 @@ Item::Item(ItemType type, sf::Vector2f pos, const sf::Texture& itemTex, const sf
     // 2. Configuração do Item (Coletável)
     itemSprite.emplace(itemTex);
 
-    // Aplicar os recortes (TextureRect) conforme as coordenadas pedidas
-    if (type == ItemType::BLOOD_BAG) itemSprite->setTextureRect({ {6, 68}, {20, 23} });
-    else if (type == ItemType::ROID_RAGE) itemSprite->setTextureRect({ {13, 252}, {12, 24} });
-    else if (type == ItemType::SPEED_BALL) itemSprite->setTextureRect({ {117, 290}, {12, 24} });
-    else if (type == ItemType::EIGHT_INCH_NAIL) itemSprite->setTextureRect({ {0, 0}, {16, 16} });
+    // Aplicar os recortes (TextureRect) e transformações específicas
+    if (type == ItemType::BLOOD_BAG) {
+        itemSprite->setTextureRect({ {6, 68}, {20, 23} });
+        itemSprite->setScale({ 3.2f, 3.2f });
+    }
+    else if (type == ItemType::ROID_RAGE) {
+        itemSprite->setTextureRect({ {13, 252}, {12, 24} });
+        itemSprite->setScale({ 3.2f, 3.2f });
+    }
+    else if (type == ItemType::SPEED_BALL) {
+        itemSprite->setTextureRect({ {117, 290}, {12, 24} });
+        itemSprite->setScale({ 3.2f, 3.2f });
+    }
+    else if (type == ItemType::EIGHT_INCH_NAIL) {
+        itemSprite->setTextureRect({ {128, 39}, {32, 17} });
+        itemSprite->setRotation(sf::degrees(90.f)); // Rotação apenas para o prego
+        itemSprite->setScale({ 1.5f, 1.5f });        // Escala menor apenas para o prego
+    }
 
-    // Origem no centro do recorte para animação suave
+    // 3. Origem no centro do recorte (Deve ser feito após o TextureRect)
     sf::FloatRect localBounds = itemSprite->getLocalBounds();
     itemSprite->setOrigin({ localBounds.size.x / 2.f, localBounds.size.y / 2.f });
 
-    // Posicionamento acima do altar
+    // 4. Posicionamento acima do altar
     itemSprite->setPosition({ pos.x, pos.y - 45.f });
-    itemSprite->setScale({ 3.2f, 3.2f });
 }
 
 void Item::collect() {
@@ -43,27 +55,29 @@ void Item::updateAnimation(float dt) {
 }
 
 void Item::draw(sf::RenderWindow& window) {
-    // O altar é desenhado sempre (mesmo após coletar o item)
+    // O altar é desenhado sempre
     if (altarSprite.has_value()) window.draw(*altarSprite);
 
     if (!is_collected && itemSprite.has_value()) {
+        // Efeito de flutuação
         float offset = std::sin(bobTimer * 3.5f) * 8.0f;
         itemSprite->setPosition({ position.x, position.y - 45.f + offset });
         window.draw(*itemSprite);
     }
 }
 
-// Retorna a área de colisão para COLETAR o item (Trigger)
+// Hitbox para COLETAR o item (Trigger)
 sf::FloatRect Item::getBounds() const {
     if (itemSprite.has_value() && !is_collected) {
         sf::FloatRect bounds = itemSprite->getGlobalBounds();
-        // Expandimos ligeiramente a margem de coleta para facilitar quando o Altar bloqueia o Isaac
-        return sf::FloatRect({ bounds.position.x - 10.f, bounds.position.y - 10.f }, { bounds.size.x + 20.f, bounds.size.y + 20.f });
+        // Margem extra para facilitar a coleta já que o pedestal bloqueia o Isaac
+        return sf::FloatRect({ bounds.position.x - 10.f, bounds.position.y - 10.f },
+            { bounds.size.x + 20.f, bounds.size.y + 20.f });
     }
     return sf::FloatRect({ 0.f, 0.f }, { 0.f, 0.f });
 }
 
-// Retorna a área sólida do Altar (Parede)
+// Hitbox sólida do Pedestal
 sf::FloatRect Item::getAltarBounds() const {
     if (altarSprite.has_value()) {
         return altarSprite->getGlobalBounds();
@@ -84,7 +98,6 @@ void ItemManager::update(sf::FloatRect playerBounds, PlayerStats& stats, float d
         item.updateAnimation(deltaTime);
 
         if (!item.isCollected()) {
-            // Se o Isaac encostar na hitbox (expandida) do item, ele coleta
             if (item.getBounds().findIntersection(playerBounds).has_value()) {
                 switch (item.getType()) {
                 case ItemType::SPEED_BALL:
