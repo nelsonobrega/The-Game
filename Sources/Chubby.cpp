@@ -16,7 +16,7 @@ Chubby::Chubby(sf::Texture& sheet, sf::Texture& projSheet) : EnemyBase() {
     projectileSprite->setPosition({ -9999.f, -9999.f });
     projectileSprite->setTextureRect({ {458, 12}, {24, 18} });
 
-    health = 7;
+    health = 15;
     state = ChubbyState::Idle;
     faceDir = FaceDir::Down;
     stateTimer = 0.f;
@@ -100,7 +100,7 @@ void Chubby::update(float deltaTime, sf::Vector2f playerPos, const sf::FloatRect
             state = ChubbyState::Moving;
             stateTimer = 0;
             distanceWalked = 0.f;
-            int r = rand() % 8;
+            int r = rand() % 4;
             if (r == 0) { moveDir = { 1, 0 }; faceDir = FaceDir::Right; }
             else if (r == 1) { moveDir = { -1, 0 }; faceDir = FaceDir::Left; }
             else if (r == 2) { moveDir = { 0, 1 }; faceDir = FaceDir::Down; }

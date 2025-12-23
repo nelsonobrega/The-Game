@@ -146,11 +146,8 @@ void Game::update(float deltaTime) {
     }
 
     const auto& config = ConfigManager::getInstance().getConfig();
-
-    // Guardamos a posição antes do movimento para tratar colisões sólidas
     sf::Vector2f lastPos = Isaac->getPosition();
 
-    // --- TRANSIÇÃO DE SALA ---
     if (roomManager->isTransitioning()) {
         sf::Vector2f playerPos = Isaac->getPosition();
         Room* roomBefore = roomManager->getCurrentRoom();
@@ -167,17 +164,14 @@ void Game::update(float deltaTime) {
 
     Room* currentRoom = roomManager->getCurrentRoom();
     if (currentRoom) {
-        // --- COLISÃO COM ITENS E ALTAR (Lógica Unificada) ---
+        // --- COLISÃO COM ITENS E ALTAR ---
         if (currentRoom->getType() == RoomType::Treasure) {
             auto& itemOpt = currentRoom->getRoomItem();
             if (itemOpt.has_value()) {
                 sf::FloatRect isaacBounds = Isaac->getGlobalBounds();
                 sf::FloatRect altarBounds = itemOpt->getAltarBounds();
 
-                // Se houver colisão com o altar, verificamos coleta e bloqueamos movimento
                 if (checkCollision(isaacBounds, altarBounds)) {
-
-                    // Se o item ainda não foi pego, pegamos ao encostar no altar
                     if (!itemOpt->isCollected()) {
                         ItemType type = itemOpt->getType();
                         if (type == ItemType::SPEED_BALL) Isaac->addSpeed(1.4f);
@@ -185,19 +179,18 @@ void Game::update(float deltaTime) {
                         else if (type == ItemType::BLOOD_BAG) { Isaac->increaseMaxHealth(2); Isaac->heal(4); }
                         else if (type == ItemType::EIGHT_INCH_NAIL) {
                             Isaac->addDamage(2.0f);
+                            // Ativa a mecânica de CARREGAMENTO e define a textura
+                            Isaac->setEightInchNail(true);
                             Isaac->setTearTexture(assets.getTexture("8inch_tears"), sf::IntRect({ 12,12 }, { 9,7 }));
                         }
                         itemOpt->collect();
-                        std::cout << "Item coletado via Altar!" << std::endl;
                     }
-
-                    // Impede o Isaac de atravessar o Altar
                     Isaac->setPosition(lastPos);
                 }
             }
         }
 
-        // --- RESTO DAS COLISÕES (INIMIGOS / TIROS) ---
+        // --- COLISÃO: TIROS DO ISAAC -> INIMIGOS ---
         auto& isaacProjectiles = Isaac->getProjectiles();
         auto& demons = currentRoom->getDemons();
         auto& bishops = currentRoom->getBishops();
@@ -210,15 +203,23 @@ void Game::update(float deltaTime) {
             sf::FloatRect tearBounds = itTear->sprite.getGlobalBounds();
             float dmg = itTear->damage;
 
+            // Verificação de colisão com cada tipo de inimigo
             for (auto& m : monstros) if (m->getHealth() > 0 && checkCollision(tearBounds, m->getGlobalBounds())) { m->takeDamage(dmg); hit = true; break; }
             if (!hit) for (auto& d : demons) if (d->getHealth() > 0 && checkCollision(tearBounds, d->getGlobalBounds())) { d->takeDamage(dmg); hit = true; break; }
             if (!hit) for (auto& b : bishops) if (b->getHealth() > 0 && checkCollision(tearBounds, b->getGlobalBounds())) { b->takeDamage(dmg); hit = true; break; }
             if (!hit) for (auto& c : chubbies) if (c->getHealth() > 0 && checkCollision(tearBounds, c->getGlobalBounds())) { c->takeDamage(dmg); hit = true; break; }
 
-            if (hit) itTear = isaacProjectiles.erase(itTear);
+            if (hit) {
+                // SE FOR UM PREGO, INCREMENTA O CONTADOR GLOBAL PARA O BLOOD NAIL
+                if (itTear->isNail) {
+                    Isaac->incrementNailHits();
+                }
+                itTear = isaacProjectiles.erase(itTear);
+            }
             else ++itTear;
         }
 
+        // --- COLISÃO: INIMIGOS/TIROS -> ISAAC ---
         for (auto& m : monstros) {
             if (m->getHealth() <= 0) continue;
             if (checkCollision(isaacBounds, m->getGlobalBounds())) Isaac->takeDamage((m->getState() == MonstroState::Falling) ? 2 : 1);

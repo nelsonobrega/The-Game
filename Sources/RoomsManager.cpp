@@ -123,8 +123,6 @@ void RoomManager::generateDungeon(int numRooms) {
     visitedRooms.insert(currentRoomID);
 }
 
-// ... Restante das funções permanecem iguais ...
-
 void RoomManager::createRoom(int id, RoomType type) {
     rooms.emplace(id, Room(id, type, gameBounds));
     std::vector<sf::IntRect> vars = { {{0, 0}, {234, 156}}, {{0, 156}, {234, 156}}, {{234, 0}, {234, 156}} };

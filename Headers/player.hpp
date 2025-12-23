@@ -12,6 +12,7 @@ struct Projectile {
     sf::Vector2f direction;
     float distanceTraveled;
     float damage;
+    bool isNail; // Identifica se é um prego para lógica de hits
 };
 
 class Player_ALL {
@@ -35,6 +36,7 @@ public:
     int getMaxHealthBonus() const;
     float getDamage() const;
     std::vector<Projectile>& getProjectiles();
+    bool hasNailEffect() const { return hasEightInchNail; }
 
     // Setters e Comandos
     void setPosition(const sf::Vector2f& newPosition);
@@ -48,11 +50,13 @@ public:
     void heal(int amount);
     void increaseMaxHealth(int containers);
     void setTearTexture(const sf::Texture& texture, const sf::IntRect& rect);
+    void setEightInchNail(bool active); // Ativa a mecânica de prego
+    void incrementNailHits();           // Chamado pelo Game.cpp ao acertar inimigo
     void rage();
 
 private:
     void handleMovementAndAnimation(float deltaTime);
-    void handleAttack();
+    void handleAttack(float deltaTime); // Agora recebe deltaTime para o Charge
     void updateProjectiles(float deltaTime, const sf::FloatRect& gameBounds);
     void handleHitFlash(float deltaTime);
 
@@ -64,7 +68,7 @@ private:
     float speedMultiplier_;
     float damage;
 
-    // Ataque
+    // Ataque e Projéteis
     float isaacHitSpeed;
     float maxHitDistance;
     sf::Clock cooldownClock;
@@ -72,6 +76,19 @@ private:
     sf::IntRect projectileTextureRect;
     std::vector<Projectile> projectiles;
     sf::Texture* hitTexture;
+
+    // --- MECÂNICA EIGHT INCH NAIL (CHARGE) ---
+    bool hasEightInchNail = false;
+    bool isCharging = false;
+    float chargeTimer = 0.0f;
+    int nailHits = 0;
+    int currentChargeLevel = 0;
+    sf::Vector2f lastChargeDir;
+    float lastChargeRot;
+
+    // Rects de evolução dos pregos
+    std::vector<sf::IntRect> nailRects;
+    std::vector<sf::IntRect> bloodNailRects;
 
     // Animação e Dano
     bool isHit = false;

@@ -74,7 +74,7 @@ void Room::spawnEnemies(std::vector<sf::Texture>& dDown, std::vector<sf::Texture
         };
     if (type == RoomType::Boss) monstros.push_back(std::make_unique<Monstro>(AssetManager::getInstance().getTexture("MonstroSheet"), dProj, sf::Vector2f(gameBounds.position.x + gameBounds.size.x / 2.f, gameBounds.position.y + gameBounds.size.y / 2.f)));
     else if (type == RoomType::Normal) {
-        if (rand() % 100 < 40) { int count = 2 + rand() % 2; for (int i = 0; i < count; i++) { auto c = std::make_unique<Chubby>(cSheet, cProj); c->setPosition(getRandomPos()); chubbies.push_back(std::move(c)); } }
+        if (rand() % 100 < 55) { int count = 4 + rand() % 5; for (int i = 0; i < count; i++) { auto c = std::make_unique<Chubby>(cSheet, cProj); c->setPosition(getRandomPos()); chubbies.push_back(std::move(c)); } }
         else { auto d = std::make_unique<Demon_ALL>(dDown, dUp, dLeft, dRight, dProj, getRandomPos()); d->setProjectileTextureRect({ {config.projectile_textures.demon_tear.x, config.projectile_textures.demon_tear.y}, {config.projectile_textures.demon_tear.width, config.projectile_textures.demon_tear.height} }); demons.push_back(std::move(d)); }
         if ((rand() % 100) < config.bishop.stats.spawn_chance_percent) bishops.push_back(std::make_unique<Bishop_ALL>(bTex, getRandomPos()));
     }

@@ -150,6 +150,7 @@
     <ClCompile Include="Sources\Rooms.cpp" />
     <ClCompile Include="Sources\RoomsManager.cpp" />
     <ClCompile Include="Sources\Utils.cpp" />
+    <ClCompile Include="Sources\Vis.cpp" />
     <ClCompile Include="The Game.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -174,6 +175,7 @@
     <ClInclude Include="Headers\Rooms.hpp" />
     <ClInclude Include="Headers\RoomsManager.hpp" />
     <ClInclude Include="Headers\Utils.hpp" />
+    <ClInclude Include="Headers\Vis.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="config.json" />
