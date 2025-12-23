@@ -10,7 +10,8 @@
 struct Projectile {
     sf::Sprite sprite;
     sf::Vector2f direction;
-    float distanceTraveled = 0.f;
+    float distanceTraveled;
+    float damage;
 };
 
 class Player_ALL {
@@ -31,7 +32,8 @@ public:
     sf::Vector2f getPosition() const;
     sf::FloatRect getGlobalBounds() const;
     int getHealth() const;
-    int getMaxHealthBonus() const; // Adicionado aqui
+    int getMaxHealthBonus() const;
+    float getDamage() const;
     std::vector<Projectile>& getProjectiles();
 
     // Setters e Comandos
@@ -42,12 +44,13 @@ public:
 
     // --- MÉTODOS PARA ITENS ---
     void addSpeed(float amount);
+    void addDamage(float amount);
     void heal(int amount);
-    void increaseMaxHealth(int containers); // Adicionado aqui
+    void increaseMaxHealth(int containers);
     void setTearTexture(const sf::Texture& texture, const sf::IntRect& rect);
+    void rage();
 
 private:
-    // Lógicas internas
     void handleMovementAndAnimation(float deltaTime);
     void handleAttack();
     void updateProjectiles(float deltaTime, const sf::FloatRect& gameBounds);
@@ -56,9 +59,10 @@ private:
     // Propriedades do Personagem
     std::optional<sf::Sprite> Isaac;
     int health;
-    int maxHealthBonus; // Variável para o Blood Bag
+    int maxHealthBonus;
     float speed;
     float speedMultiplier_;
+    float damage;
 
     // Ataque
     float isaacHitSpeed;

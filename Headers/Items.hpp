@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 
+// Estrutura para armazenar os modificadores que os itens aplicam ao Isaac
 struct PlayerStats {
     float speedMultiplier = 1.0f;
     float damageMultiplier = 1.0f;
@@ -15,10 +16,11 @@ struct PlayerStats {
     int currentHP = 6;
 };
 
+// Tipos de itens disponíveis no jogo
 enum class ItemType {
     SPEED_BALL,
     ROID_RAGE,
-    SQUEEZY_BLOOD_BAG,
+    BLOOD_BAG,
     EIGHT_INCH_NAIL
 };
 
@@ -26,14 +28,16 @@ class Item {
 public:
     Item(ItemType type, sf::Vector2f pos, const sf::Texture& itemTex, const sf::Texture& altarTex);
 
+    // Getters
     bool isCollected() const { return is_collected; }
-    void collect() { is_collected = true; }
     ItemType getType() const { return type; }
 
-    // NOVO: Método para atualizar o timer de flutuação
-    void updateAnimation(float dt) { bobTimer += dt; }
+    // Declarações (A lógica está no .cpp para evitar erro de corpo duplicado)
+    void collect();
+    void updateAnimation(float dt);
 
     sf::FloatRect getBounds() const;
+    sf::FloatRect getAltarBounds() const;
     void draw(sf::RenderWindow& window);
 
 private:
@@ -48,10 +52,14 @@ private:
 
 class ItemManager {
 public:
+    // Cria um novo item num pedestal
     void spawnTreasureItem(ItemType type, sf::Vector2f position,
         const sf::Texture& itemTex, const sf::Texture& altarTex);
 
+    // Gere a animação e a colisão com o jogador
     void update(sf::FloatRect playerBounds, PlayerStats& stats, float deltaTime);
+
+    // Desenha todos os pedestais e itens ativos
     void draw(sf::RenderWindow& window);
 
 private:

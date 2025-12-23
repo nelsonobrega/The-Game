@@ -68,7 +68,8 @@ public:
     std::vector<std::unique_ptr<Chubby>>& getChubbies() { return chubbies; }
     std::vector<std::unique_ptr<Monstro>>& getMonstros() { return monstros; }
 
-    // --- CORREÇÃO AQUI: Agora aceita itemTex E altarTex ---
+    // --- CORREÇÃO AQUI: Agora aceita itemTex E 
+    // Tex ---
     void setRoomItem(ItemType type, sf::Vector2f pos, const sf::Texture& itemTex, const sf::Texture& altarTex) {
         roomItem.emplace(type, pos, itemTex, altarTex);
     }

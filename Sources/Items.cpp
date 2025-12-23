@@ -1,60 +1,92 @@
 #include "Items.hpp"
 #include <iostream>
 #include <cmath>
+#include <algorithm>
+
+// --- Implementação do Item ---
 
 Item::Item(ItemType type, sf::Vector2f pos, const sf::Texture& itemTex, const sf::Texture& altarTex)
-    : type(type), position(pos), is_collected(false), bobTimer(0.0f) {
-
-    // Altar
+    : type(type), position(pos), is_collected(false), bobTimer(0.0f)
+{
+    // 1. Configuração do Altar (Sólido)
     altarSprite.emplace(altarTex);
     altarSprite->setOrigin({ altarTex.getSize().x / 2.f, altarTex.getSize().y / 2.f });
     altarSprite->setPosition(pos);
     altarSprite->setScale({ 3.5f, 3.5f });
 
-    // Item
+    // 2. Configuração do Item (Coletável)
     itemSprite.emplace(itemTex);
-    itemSprite->setOrigin({ itemTex.getSize().x / 2.f, itemTex.getSize().y / 2.f });
-    itemSprite->setPosition({ pos.x, pos.y - 35.f });
-    itemSprite->setScale({ 1.5f, 1.5f });
+
+    // Aplicar os recortes (TextureRect) conforme as coordenadas pedidas
+    if (type == ItemType::BLOOD_BAG) itemSprite->setTextureRect({ {6, 68}, {20, 23} });
+    else if (type == ItemType::ROID_RAGE) itemSprite->setTextureRect({ {13, 252}, {12, 24} });
+    else if (type == ItemType::SPEED_BALL) itemSprite->setTextureRect({ {117, 290}, {12, 24} });
+    else if (type == ItemType::EIGHT_INCH_NAIL) itemSprite->setTextureRect({ {0, 0}, {16, 16} });
+
+    // Origem no centro do recorte para animação suave
+    sf::FloatRect localBounds = itemSprite->getLocalBounds();
+    itemSprite->setOrigin({ localBounds.size.x / 2.f, localBounds.size.y / 2.f });
+
+    // Posicionamento acima do altar
+    itemSprite->setPosition({ pos.x, pos.y - 45.f });
+    itemSprite->setScale({ 3.2f, 3.2f });
+}
+
+void Item::collect() {
+    is_collected = true;
+}
+
+void Item::updateAnimation(float dt) {
+    if (!is_collected) {
+        bobTimer += dt;
+    }
 }
 
 void Item::draw(sf::RenderWindow& window) {
-    if (altarSprite.has_value()) {
-        window.draw(*altarSprite);
-    }
+    // O altar é desenhado sempre (mesmo após coletar o item)
+    if (altarSprite.has_value()) window.draw(*altarSprite);
 
     if (!is_collected && itemSprite.has_value()) {
-        // Efeito visual: o item flutua para cima e para baixo
-        float offset = std::sin(bobTimer * 3.0f) * 5.0f;
-        itemSprite->setPosition({ position.x, position.y - 35.f + offset });
+        float offset = std::sin(bobTimer * 3.5f) * 8.0f;
+        itemSprite->setPosition({ position.x, position.y - 45.f + offset });
         window.draw(*itemSprite);
     }
 }
 
+// Retorna a área de colisão para COLETAR o item (Trigger)
 sf::FloatRect Item::getBounds() const {
     if (itemSprite.has_value() && !is_collected) {
-        return itemSprite->getGlobalBounds();
+        sf::FloatRect bounds = itemSprite->getGlobalBounds();
+        // Expandimos ligeiramente a margem de coleta para facilitar quando o Altar bloqueia o Isaac
+        return sf::FloatRect({ bounds.position.x - 10.f, bounds.position.y - 10.f }, { bounds.size.x + 20.f, bounds.size.y + 20.f });
     }
-    return sf::FloatRect({ 0, 0 }, { 0, 0 });
+    return sf::FloatRect({ 0.f, 0.f }, { 0.f, 0.f });
+}
+
+// Retorna a área sólida do Altar (Parede)
+sf::FloatRect Item::getAltarBounds() const {
+    if (altarSprite.has_value()) {
+        return altarSprite->getGlobalBounds();
+    }
+    return sf::FloatRect({ 0.f, 0.f }, { 0.f, 0.f });
 }
 
 // --- ItemManager ---
 
 void ItemManager::spawnTreasureItem(ItemType type, sf::Vector2f position,
-    const sf::Texture& itemTex, const sf::Texture& altarTex) {
+    const sf::Texture& itemTex, const sf::Texture& altarTex)
+{
     activeItems.emplace_back(type, position, itemTex, altarTex);
 }
 
 void ItemManager::update(sf::FloatRect playerBounds, PlayerStats& stats, float deltaTime) {
-    for (auto it = activeItems.begin(); it != activeItems.end(); ++it) {
+    for (auto& item : activeItems) {
+        item.updateAnimation(deltaTime);
 
-        // Atualiza a animação de flutuar de cada item
-        it->updateAnimation(deltaTime);
-
-        if (!it->isCollected()) {
-            if (it->getBounds().findIntersection(playerBounds).has_value()) {
-
-                switch (it->getType()) {
+        if (!item.isCollected()) {
+            // Se o Isaac encostar na hitbox (expandida) do item, ele coleta
+            if (item.getBounds().findIntersection(playerBounds).has_value()) {
+                switch (item.getType()) {
                 case ItemType::SPEED_BALL:
                     stats.speedMultiplier *= 1.4f;
                     break;
@@ -63,7 +95,7 @@ void ItemManager::update(sf::FloatRect playerBounds, PlayerStats& stats, float d
                     stats.damageMultiplier *= 1.5f;
                     stats.speedMultiplier *= 1.2f;
                     break;
-                case ItemType::SQUEEZY_BLOOD_BAG:
+                case ItemType::BLOOD_BAG:
                     stats.maxHPContainers += 2;
                     stats.currentHP = std::min(stats.maxHPContainers, stats.currentHP + 2);
                     break;
@@ -72,7 +104,7 @@ void ItemManager::update(sf::FloatRect playerBounds, PlayerStats& stats, float d
                     stats.damageMultiplier *= 1.3f;
                     break;
                 }
-                it->collect();
+                item.collect();
                 std::cout << "Item coletado!" << std::endl;
             }
         }
@@ -80,7 +112,5 @@ void ItemManager::update(sf::FloatRect playerBounds, PlayerStats& stats, float d
 }
 
 void ItemManager::draw(sf::RenderWindow& window) {
-    for (auto& item : activeItems) {
-        item.draw(window);
-    }
+    for (auto& item : activeItems) item.draw(window);
 }

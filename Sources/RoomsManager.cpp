@@ -110,7 +110,7 @@ void RoomManager::generateDungeon(int numRooms) {
 
         if (type == ItemType::SPEED_BALL) texName = "Speed Ball";
         else if (type == ItemType::ROID_RAGE) texName = "Roid Rage";
-        else if (type == ItemType::SQUEEZY_BLOOD_BAG) texName = "Blood Bag";
+        else if (type == ItemType::BLOOD_BAG) texName = "Blood Bag";
         else if (type == ItemType::EIGHT_INCH_NAIL) texName = "8 inch nail";
 
         // AGORA PASSAMOS 4 ARGUMENTOS: tipo, posição, textura do item e textura do altar
