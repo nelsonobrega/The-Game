@@ -3,6 +3,7 @@
 #include "ConfigManager.hpp"
 #include "AssetManager.hpp"
 #include "Monstro.hpp"
+#include "Vis.hpp"
 #include <iostream>
 #include <cstdlib>
 #include <algorithm>
@@ -62,9 +63,21 @@ void Room::addDoor(DoorDirection direction, DoorType doorType, sf::Texture& door
     doors.push_back(door);
 }
 
-void Room::spawnEnemies(std::vector<sf::Texture>& dDown, std::vector<sf::Texture>& dUp, std::vector<sf::Texture>& dLeft, std::vector<sf::Texture>& dRight, sf::Texture& dProj, std::vector<sf::Texture>& bTex, sf::Texture& cSheet, sf::Texture& cProj) {
+// ATUALIZADO: Adicionado parâmetro visSheet
+void Room::spawnEnemies(
+    std::vector<sf::Texture>& dDown,
+    std::vector<sf::Texture>& dUp,
+    std::vector<sf::Texture>& dLeft,
+    std::vector<sf::Texture>& dRight,
+    sf::Texture& dProj,
+    std::vector<sf::Texture>& bTex,
+    sf::Texture& cSheet,
+    sf::Texture& cProj,
+    sf::Texture& visSheet
+) {
     if (type == RoomType::SafeZone || type == RoomType::Treasure || cleared) return;
-    if (!demons.empty() || !bishops.empty() || !chubbies.empty() || !monstros.empty()) return;
+    if (!demons.empty() || !bishops.empty() || !chubbies.empty() || !monstros.empty() || !visEnemies.empty()) return;
+
     const auto& config = ConfigManager::getInstance().getConfig();
     auto getRandomPos = [&]() -> sf::Vector2f {
         float margin = 200.f;
@@ -72,11 +85,46 @@ void Room::spawnEnemies(std::vector<sf::Texture>& dDown, std::vector<sf::Texture
         float ry = margin + static_cast<float>(rand() % static_cast<int>(gameBounds.size.y - margin * 2));
         return { gameBounds.position.x + rx, gameBounds.position.y + ry };
         };
-    if (type == RoomType::Boss) monstros.push_back(std::make_unique<Monstro>(AssetManager::getInstance().getTexture("MonstroSheet"), dProj, sf::Vector2f(gameBounds.position.x + gameBounds.size.x / 2.f, gameBounds.position.y + gameBounds.size.y / 2.f)));
+
+    if (type == RoomType::Boss) {
+        monstros.push_back(std::make_unique<Monstro>(
+            AssetManager::getInstance().getTexture("MonstroSheet"),
+            dProj,
+            sf::Vector2f(gameBounds.position.x + gameBounds.size.x / 2.f, gameBounds.position.y + gameBounds.size.y / 2.f)
+        ));
+    }
     else if (type == RoomType::Normal) {
-        if (rand() % 100 < 55) { int count = 4 + rand() % 5; for (int i = 0; i < count; i++) { auto c = std::make_unique<Chubby>(cSheet, cProj); c->setPosition(getRandomPos()); chubbies.push_back(std::move(c)); } }
-        else { auto d = std::make_unique<Demon_ALL>(dDown, dUp, dLeft, dRight, dProj, getRandomPos()); d->setProjectileTextureRect({ {config.projectile_textures.demon_tear.x, config.projectile_textures.demon_tear.y}, {config.projectile_textures.demon_tear.width, config.projectile_textures.demon_tear.height} }); demons.push_back(std::move(d)); }
-        if ((rand() % 100) < config.bishop.stats.spawn_chance_percent) bishops.push_back(std::make_unique<Bishop_ALL>(bTex, getRandomPos()));
+        int r = rand() % 100;
+
+        // 35% Chance de Chubbies
+        if (r < 35) {
+            int count = 3 + rand() % 3;
+            for (int i = 0; i < count; i++) {
+                auto c = std::make_unique<Chubby>(cSheet, cProj);
+                c->setPosition(getRandomPos());
+                chubbies.push_back(std::move(c));
+            }
+        }
+        // 35% Chance de Demons (35 a 69)
+        else if (r < 70) {
+            auto d = std::make_unique<Demon_ALL>(dDown, dUp, dLeft, dRight, dProj, getRandomPos());
+            d->setProjectileTextureRect({ {config.projectile_textures.demon_tear.x, config.projectile_textures.demon_tear.y}, {config.projectile_textures.demon_tear.width, config.projectile_textures.demon_tear.height} });
+            demons.push_back(std::move(d));
+        }
+        // 30% Chance de Vis (70 a 99)
+        else {
+            int count = 2 + rand() % 2; // Spawna 2 ou 3 Vis
+            for (int i = 0; i < count; i++) {
+                auto v = std::make_unique<Vis>(visSheet);
+                v->setPosition(getRandomPos());
+                visEnemies.push_back(std::move(v));
+            }
+        }
+
+        // Bishop tem chance independente de aparecer (exceto em sala de Vis para não ficar muito caótico)
+        if ((rand() % 100) < config.bishop.stats.spawn_chance_percent && r < 70) {
+            bishops.push_back(std::make_unique<Bishop_ALL>(bTex, getRandomPos()));
+        }
     }
 }
 
@@ -85,21 +133,25 @@ void Room::update(float dt, sf::Vector2f pPos) {
     for (auto& b : bishops) if (b->getHealth() > 0) b->update(dt, pPos, gameBounds);
     for (auto& c : chubbies) if (c->getHealth() > 0) c->update(dt, pPos, gameBounds);
     for (auto& m : monstros) if (m->getHealth() > 0) m->update(dt, pPos, gameBounds);
-    updateDoorAnimations(dt); checkIfCleared();
+    for (auto& v : visEnemies) if (v->getHealth() > 0) v->update(dt, pPos, gameBounds); // NOVO
+
+    updateDoorAnimations(dt);
+    checkIfCleared();
 }
 
 void Room::draw(sf::RenderWindow& window) {
     for (const auto& door : doors) drawDoor(window, door);
 
-    // --- DESENHAR O ITEM SE EXISTIR ---
     if (roomItem.has_value()) {
         roomItem->draw(window);
     }
 
+    // Desenhar Inimigos
     for (auto& d : demons) if (d->getHealth() > 0) d->draw(window);
     for (auto& b : bishops) if (b->getHealth() > 0) b->draw(window);
     for (auto& c : chubbies) if (c->getHealth() > 0) c->draw(window);
     for (auto& m : monstros) if (m->getHealth() > 0) m->draw(window);
+    for (auto& v : visEnemies) if (v->getHealth() > 0) v->draw(window); // NOVO
 }
 
 void Room::drawDoor(sf::RenderWindow& window, const Door& door) const {
@@ -126,7 +178,12 @@ void Room::drawDoor(sf::RenderWindow& window, const Door& door) const {
 void Room::checkIfCleared() {
     if (cleared) return;
     auto dead = [](const auto& v) { return std::all_of(v.begin(), v.end(), [](const auto& e) { return e->getHealth() <= 0; }); };
-    if (dead(demons) && dead(bishops) && dead(chubbies) && dead(monstros)) { cleared = true; openDoors(); }
+
+    // Atualizado para checar Vis
+    if (dead(demons) && dead(bishops) && dead(chubbies) && dead(monstros) && dead(visEnemies)) {
+        cleared = true;
+        openDoors();
+    }
 }
 
 void Room::openDoors() { for (auto& d : doors) d.state = DoorState::Opening; doorsOpened = true; }

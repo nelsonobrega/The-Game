@@ -7,9 +7,13 @@
 #include <random>
 #include <optional> 
 #include <algorithm>
+
+// Inclusão dos inimigos
 #include "enemy.hpp"
 #include "Chubby.hpp"
 #include "Monstro.hpp"
+#include "Vis.hpp" // NOVO
+
 #include "Items.hpp" 
 
 enum class DoorDirection { North, South, East, West, None };
@@ -42,6 +46,7 @@ public:
     void addDoor(DoorDirection direction, DoorType doorType, sf::Texture& doorSpritesheet);
     void connectDoor(DoorDirection direction, int targetRoomID);
 
+    // Atualizado para receber a textura do Vis
     void spawnEnemies(
         std::vector<sf::Texture>& demonWalkDown,
         std::vector<sf::Texture>& demonWalkUp,
@@ -50,7 +55,8 @@ public:
         sf::Texture& demonProjectileTexture,
         std::vector<sf::Texture>& bishopTextures,
         sf::Texture& chubbySheet,
-        sf::Texture& chubbyProjSheet
+        sf::Texture& chubbyProjSheet,
+        sf::Texture& visSheet // NOVO ARGUMENTO
     );
 
     void update(float deltaTime, sf::Vector2f playerPosition);
@@ -63,13 +69,13 @@ public:
     int getDoorLeadsTo(DoorDirection direction) const;
     const std::vector<Door>& getDoors() const { return doors; }
 
+    // Getters dos Inimigos
     std::vector<std::unique_ptr<Demon_ALL>>& getDemons() { return demons; }
     std::vector<std::unique_ptr<Bishop_ALL>>& getBishops() { return bishops; }
     std::vector<std::unique_ptr<Chubby>>& getChubbies() { return chubbies; }
     std::vector<std::unique_ptr<Monstro>>& getMonstros() { return monstros; }
+    std::vector<std::unique_ptr<Vis>>& getVisEnemies() { return visEnemies; } // NOVO
 
-    // --- CORREÇÃO AQUI: Agora aceita itemTex E 
-    // Tex ---
     void setRoomItem(ItemType type, sf::Vector2f pos, const sf::Texture& itemTex, const sf::Texture& altarTex) {
         roomItem.emplace(type, pos, itemTex, altarTex);
     }
@@ -95,10 +101,12 @@ private:
     sf::FloatRect gameBounds;
     std::vector<Door> doors;
 
+    // Vetores de Inimigos
     std::vector<std::unique_ptr<Demon_ALL>> demons;
     std::vector<std::unique_ptr<Bishop_ALL>> bishops;
     std::vector<std::unique_ptr<Chubby>> chubbies;
     std::vector<std::unique_ptr<Monstro>> monstros;
+    std::vector<std::unique_ptr<Vis>> visEnemies; // NOVO
 
     std::optional<Item> roomItem;
 

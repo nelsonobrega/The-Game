@@ -1,7 +1,7 @@
 #ifndef GAME_HPP
 #define GAME_HPP
 
-#include "SFML/Graphics.hpp"
+#include <SFML/Graphics.hpp>
 #include "player.hpp"
 #include "enemy.hpp"
 #include "AssetManager.hpp"
@@ -33,7 +33,7 @@ private:
     // --- Lógica do Boss Splash ---
     bool showBossTitle;
     float bossTitleTimer;
-    sf::RectangleShape bossIntroBackground; // <-- ADICIONADO AQUI
+    sf::RectangleShape bossIntroBackground;
     std::optional<sf::Sprite> bossNameSprite;
 
     // Textures para menu e UI

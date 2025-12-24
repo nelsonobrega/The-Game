@@ -3,13 +3,14 @@
 
 #include "Rooms.hpp"
 #include "AssetManager.hpp"
-#include "ConfigManager.hpp" // Necessário para durações de transição
+#include "ConfigManager.hpp" 
 #include <vector>
 #include <map>
 #include <set>
 #include <random>
 #include <SFML/Graphics.hpp>
 
+// Comparador para usar sf::Vector2i como chave em std::map
 struct Vector2iComparator {
     bool operator()(const sf::Vector2i& left, const sf::Vector2i& right) const {
         if (left.x != right.x) return left.x < right.x;
@@ -56,13 +57,15 @@ private:
     bool treasureRoomGenerated = false;
     std::set<int> visitedRooms;
 
+    // Variáveis de Transição
     TransitionState transitionState;
     DoorDirection transitionDirection;
     float transitionProgress;
-    float transitionDuration; // Puxado do Config no construtor
+    float transitionDuration;
 
     sf::RectangleShape transitionOverlay;
 
+    // Helpers de Geração
     void createRoom(int id, RoomType type);
     void connectRooms(int roomA, int roomB, DoorDirection directionFromA);
     DoorDirection getOppositeDirection(DoorDirection direction);
