@@ -107,6 +107,7 @@ private:
     std::vector<std::unique_ptr<Chubby>> chubbies;
     std::vector<std::unique_ptr<Monstro>> monstros;
     std::vector<std::unique_ptr<Vis>> visEnemies; // NOVO
+    std::vector<std::unique_ptr<DoubleVis>> doubleVisEnemies;
 
     std::optional<Item> roomItem;
 

@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <algorithm>
+#include <cmath>
 
 void Game::loadGameAssets() {
     // Isaac & Tears
@@ -33,7 +34,7 @@ void Game::loadGameAssets() {
     assets.loadAnimation("Bishop", "Bishop", "B", 14, ".png");
     assets.loadTexture("ChubbySheet", "Images/Chubby/Chubby.png");
     assets.loadTexture("MonstroSheet", "Images/Monstro(BOSS)/Monstro.png");
-    assets.loadTexture("VisSheet", "Images/Chubby/Chubby.png");
+    assets.loadTexture("VisSheet", "Images/Chubby/Chubby.png"); // Certifique-se que o caminho está correto
 
     // Environment & UI
     assets.loadTexture("Door", "Images/Background/Doors.png");
@@ -89,7 +90,7 @@ Game::Game()
 
     if (Isaac) {
         const auto& projConfig = config.projectile_textures.isaac_tear;
-        Isaac->setProjectileTextureRect(sf::IntRect(sf::Vector2i(projConfig.x, projConfig.y), sf::Vector2i(projConfig.width, projConfig.height)));
+        Isaac->setProjectileTextureRect(sf::IntRect({ projConfig.x, projConfig.y }, { projConfig.width, projConfig.height }));
         Isaac->setPosition({ (float)config.game.window_width / 2.f, (float)config.game.window_height / 2.f });
     }
 
@@ -154,8 +155,6 @@ void Game::update(float deltaTime) {
         else return;
     }
 
-    sf::Vector2f lastPos = Isaac->getPosition();
-
     // Transição de Salas
     if (roomManager->isTransitioning()) {
         sf::Vector2f playerPos = Isaac->getPosition();
@@ -180,10 +179,8 @@ void Game::update(float deltaTime) {
                 sf::FloatRect altarBounds = itemOpt->getAltarBounds();
                 sf::FloatRect isaacBounds = Isaac->getGlobalBounds();
 
-                // COLISÃO FÍSICA DO ALTAR: SEMPRE ATIVA (mesmo após coletar item)
                 if (checkCollision(isaacBounds, altarBounds)) {
                     sf::Vector2f isaacPos = Isaac->getPosition();
-
                     float overlapLeft = (isaacBounds.position.x + isaacBounds.size.x) - altarBounds.position.x;
                     float overlapRight = (altarBounds.position.x + altarBounds.size.x) - isaacBounds.position.x;
                     float overlapTop = (isaacBounds.position.y + isaacBounds.size.y) - altarBounds.position.y;
@@ -192,7 +189,6 @@ void Game::update(float deltaTime) {
                     float minOverlapX = std::min(overlapLeft, overlapRight);
                     float minOverlapY = std::min(overlapTop, overlapBottom);
 
-                    // Deslize: empurra apenas no eixo com menor sobreposição
                     if (minOverlapX < minOverlapY) {
                         if (overlapLeft < overlapRight) isaacPos.x -= overlapLeft;
                         else isaacPos.x += overlapRight;
@@ -204,16 +200,10 @@ void Game::update(float deltaTime) {
                     Isaac->setPosition(isaacPos);
                 }
 
-                // COLETA DO ITEM: Só se ainda não foi coletado
                 if (!itemOpt->isCollected()) {
-                    // Recalcular bounds após ajuste de colisão
                     isaacBounds = Isaac->getGlobalBounds();
-
-                    sf::Vector2f iCenter = { isaacBounds.position.x + isaacBounds.size.x / 2.f,
-                                             isaacBounds.position.y + isaacBounds.size.y / 2.f };
-                    sf::Vector2f aCenter = { altarBounds.position.x + altarBounds.size.x / 2.f,
-                                             altarBounds.position.y + altarBounds.size.y / 2.f };
-
+                    sf::Vector2f iCenter = { isaacBounds.position.x + isaacBounds.size.x / 2.f, isaacBounds.position.y + isaacBounds.size.y / 2.f };
+                    sf::Vector2f aCenter = { altarBounds.position.x + altarBounds.size.x / 2.f, altarBounds.position.y + altarBounds.size.y / 2.f };
                     float dist = std::sqrt(std::pow(iCenter.x - aCenter.x, 2) + std::pow(iCenter.y - aCenter.y, 2));
 
                     if (dist < 95.f) {
@@ -222,8 +212,7 @@ void Game::update(float deltaTime) {
                         else if (type == ItemType::ROID_RAGE) { Isaac->addSpeed(1.2f); Isaac->addDamage(1.5f); }
                         else if (type == ItemType::BLOOD_BAG) { Isaac->increaseMaxHealth(2); Isaac->heal(4); }
                         else if (type == ItemType::EIGHT_INCH_NAIL) {
-                            Isaac->addDamage(2.0f);
-                            Isaac->setEightInchNail(true);
+                            Isaac->addDamage(2.0f); Isaac->setEightInchNail(true);
                             Isaac->setTearTexture(assets.getTexture("8inch_tears"), sf::IntRect({ 12,12 }, { 9,7 }));
                         }
                         itemOpt->collect();
@@ -234,22 +223,18 @@ void Game::update(float deltaTime) {
 
         // --- COLISÕES: TIROS DO ISAAC -> INIMIGOS ---
         auto& tears = Isaac->getProjectiles();
-        auto& demons = currentRoom->getDemons();
-        auto& bishops = currentRoom->getBishops();
-        auto& chubbies = currentRoom->getChubbies();
-        auto& monstros = currentRoom->getMonstros();
-        auto& visses = currentRoom->getVisEnemies();
+        sf::FloatRect iBounds = Isaac->getGlobalBounds();
 
         for (auto itTear = tears.begin(); itTear != tears.end();) {
             bool hit = false;
             sf::FloatRect tBounds = itTear->sprite.getGlobalBounds();
             float dmg = itTear->damage;
 
-            for (auto& m : monstros) if (m->getHealth() > 0 && checkCollision(tBounds, m->getGlobalBounds())) { m->takeDamage(dmg); hit = true; break; }
-            if (!hit) for (auto& d : demons) if (d->getHealth() > 0 && checkCollision(tBounds, d->getGlobalBounds())) { d->takeDamage(dmg); hit = true; break; }
-            if (!hit) for (auto& b : bishops) if (b->getHealth() > 0 && checkCollision(tBounds, b->getGlobalBounds())) { b->takeDamage(dmg); hit = true; break; }
-            if (!hit) for (auto& c : chubbies) if (c->getHealth() > 0 && checkCollision(tBounds, c->getGlobalBounds())) { c->takeDamage(dmg); hit = true; break; }
-            if (!hit) for (auto& v : visses) if (v->getHealth() > 0 && checkCollision(tBounds, v->getGlobalBounds())) { v->takeDamage(dmg); hit = true; break; }
+            for (auto& m : currentRoom->getMonstros()) if (m->getHealth() > 0 && checkCollision(tBounds, m->getGlobalBounds())) { m->takeDamage(dmg); hit = true; break; }
+            if (!hit) for (auto& d : currentRoom->getDemons()) if (d->getHealth() > 0 && checkCollision(tBounds, d->getGlobalBounds())) { d->takeDamage(dmg); hit = true; break; }
+            if (!hit) for (auto& b : currentRoom->getBishops()) if (b->getHealth() > 0 && checkCollision(tBounds, b->getGlobalBounds())) { b->takeDamage(dmg); hit = true; break; }
+            if (!hit) for (auto& c : currentRoom->getChubbies()) if (c->getHealth() > 0 && checkCollision(tBounds, c->getGlobalBounds())) { c->takeDamage(dmg); hit = true; break; }
+            if (!hit) for (auto& v : currentRoom->getVisEnemies()) if (v->getHealth() > 0 && checkCollision(tBounds, v->getGlobalBounds())) { v->takeDamage(dmg); hit = true; break; }
 
             if (hit) {
                 if (itTear->isNail) Isaac->incrementNailHits();
@@ -259,10 +244,9 @@ void Game::update(float deltaTime) {
         }
 
         // --- COLISÕES: INIMIGOS -> ISAAC ---
-        sf::FloatRect iBounds = Isaac->getGlobalBounds();
 
         // Monstro
-        for (auto& m : monstros) {
+        for (auto& m : currentRoom->getMonstros()) {
             if (m->getHealth() <= 0) continue;
             if (checkCollision(iBounds, m->getGlobalBounds())) Isaac->takeDamage((m->getState() == MonstroState::Falling) ? 2 : 1);
             for (auto itP = m->getProjectiles().begin(); itP != m->getProjectiles().end();) {
@@ -270,14 +254,24 @@ void Game::update(float deltaTime) {
                 else ++itP;
             }
         }
-        // Vis
-        for (auto& v : visses) {
+
+        // Sistema Genérico de Hazard (Lasers do Vis e DoubleVis)
+        for (auto& v : currentRoom->getVisEnemies()) {
             if (v->getHealth() <= 0) continue;
+            // Colisão com o corpo
             if (checkCollision(iBounds, v->getGlobalBounds())) Isaac->takeDamage(2);
-            if (v->isLaserActive() && checkCollision(iBounds, v->getLaserBounds())) Isaac->takeDamage(1);
+
+            // Colisão com áreas perigosas (Lasers)
+            for (const auto& hazard : v->getHazardBounds()) {
+                if (checkCollision(iBounds, hazard)) {
+                    Isaac->takeDamage(1);
+                    break; // Evita tomar dano múltiplo do mesmo laser no mesmo frame
+                }
+            }
         }
-        // Outros
-        for (auto& d : demons) {
+
+        // Outros Inimigos
+        for (auto& d : currentRoom->getDemons()) {
             if (d->getHealth() <= 0) continue;
             if (checkCollision(iBounds, d->getGlobalBounds())) Isaac->takeDamage(1);
             for (auto itP = d->getProjectiles().begin(); itP != d->getProjectiles().end();) {
@@ -285,22 +279,21 @@ void Game::update(float deltaTime) {
                 else ++itP;
             }
         }
-        for (auto& c : chubbies) {
+        for (auto& c : currentRoom->getChubbies()) {
             if (c->getHealth() <= 0) continue;
             if (checkCollision(iBounds, c->getGlobalBounds())) Isaac->takeDamage(1);
             if (checkCollision(iBounds, c->getBoomerangBounds())) Isaac->takeDamage(1);
         }
-        for (auto& b : bishops) if (b->getHealth() > 0 && checkCollision(iBounds, b->getGlobalBounds())) Isaac->takeDamage(1);
+        for (auto& b : currentRoom->getBishops()) if (b->getHealth() > 0 && checkCollision(iBounds, b->getGlobalBounds())) Isaac->takeDamage(1);
     }
 
     // Portas
     DoorDirection doorHit = roomManager->checkPlayerAtDoor(Isaac->getGlobalBounds());
     if (doorHit != DoorDirection::None) {
         roomManager->requestTransition(doorHit);
-        return;
     }
 
-    if (Isaac->getHealth() <= 0) window.close(); // Game Over simples
+    if (Isaac->getHealth() <= 0) window.close();
 }
 
 void Game::render() {

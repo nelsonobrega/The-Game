@@ -76,9 +76,13 @@ void Room::spawnEnemies(
     sf::Texture& visSheet
 ) {
     if (type == RoomType::SafeZone || type == RoomType::Treasure || cleared) return;
+
+    // Verifica se a sala já tem inimigos para não spawnar duplicado
     if (!demons.empty() || !bishops.empty() || !chubbies.empty() || !monstros.empty() || !visEnemies.empty()) return;
 
     const auto& config = ConfigManager::getInstance().getConfig();
+
+    // Função lambda para gerar posições válidas dentro dos limites da sala
     auto getRandomPos = [&]() -> sf::Vector2f {
         float margin = 200.f;
         float rx = margin + static_cast<float>(rand() % static_cast<int>(gameBounds.size.x - margin * 2));
@@ -86,6 +90,7 @@ void Room::spawnEnemies(
         return { gameBounds.position.x + rx, gameBounds.position.y + ry };
         };
 
+    // LÓGICA DE SPAWN POR TIPO DE SALA
     if (type == RoomType::Boss) {
         monstros.push_back(std::make_unique<Monstro>(
             AssetManager::getInstance().getTexture("MonstroSheet"),
@@ -96,7 +101,7 @@ void Room::spawnEnemies(
     else if (type == RoomType::Normal) {
         int r = rand() % 100;
 
-        // 35% Chance de Chubbies
+        // --- 35% Chance de Chubbies ---
         if (r < 35) {
             int count = 3 + rand() % 3;
             for (int i = 0; i < count; i++) {
@@ -105,23 +110,40 @@ void Room::spawnEnemies(
                 chubbies.push_back(std::move(c));
             }
         }
-        // 35% Chance de Demons (35 a 69)
+        // --- 35% Chance de Demons (35 a 69) ---
         else if (r < 70) {
             auto d = std::make_unique<Demon_ALL>(dDown, dUp, dLeft, dRight, dProj, getRandomPos());
-            d->setProjectileTextureRect({ {config.projectile_textures.demon_tear.x, config.projectile_textures.demon_tear.y}, {config.projectile_textures.demon_tear.width, config.projectile_textures.demon_tear.height} });
+            d->setProjectileTextureRect({
+                {config.projectile_textures.demon_tear.x, config.projectile_textures.demon_tear.y},
+                {config.projectile_textures.demon_tear.width, config.projectile_textures.demon_tear.height}
+                });
             demons.push_back(std::move(d));
         }
-        // 30% Chance de Vis (70 a 99)
+        // --- 30% Chance de grupo Vis (70 a 99) ---
         else {
-            int count = 2 + rand() % 2; // Spawna 2 ou 3 Vis
-            for (int i = 0; i < count; i++) {
-                auto v = std::make_unique<Vis>(visSheet);
-                v->setPosition(getRandomPos());
-                visEnemies.push_back(std::move(v));
+            int rDouble = rand() % 100;
+
+            if (rDouble < 30) {
+                // 30% de chance de spawnar o DoubleVis (Irmão Buffed)
+                auto dv = std::make_unique<DoubleVis>(visSheet);
+                dv->setPosition(getRandomPos());
+                visEnemies.push_back(std::move(dv));
+                // Note: Colocamos no vetor visEnemies porque DoubleVis herda de Vis
+            }
+            else {
+                // 70% de chance de spawnar 2 ou 3 Vis normais
+                int count = 2 + rand() % 2;
+                for (int i = 0; i < count; i++) {
+                    auto v = std::make_unique<Vis>(visSheet);
+                    v->setPosition(getRandomPos());
+                    visEnemies.push_back(std::move(v));
+                }
             }
         }
 
-        // Bishop tem chance independente de aparecer (exceto em sala de Vis para não ficar muito caótico)
+        // --- Spawn do Bishop (Chance independente) ---
+        // Ele aparece se a chance no config permitir e se não for uma sala de Vis 
+        // (para manter o r < 70 como no seu código original)
         if ((rand() % 100) < config.bishop.stats.spawn_chance_percent && r < 70) {
             bishops.push_back(std::make_unique<Bishop_ALL>(bTex, getRandomPos()));
         }

@@ -36,6 +36,11 @@ public:
         if (sprite) sprite->setPosition(pos);
     }
 
+    // Retorna todas as áreas que causam dano (Lasers, poças, etc)
+    virtual std::vector<sf::FloatRect> getHazardBounds() const {
+        return {}; // Por padrão, inimigos normais não têm áreas extras
+    }
+
     virtual void update(float deltaTime, sf::Vector2f playerPosition, const sf::FloatRect& gameBounds) = 0;
     virtual void draw(sf::RenderWindow& window);
 

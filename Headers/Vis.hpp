@@ -1,69 +1,69 @@
 #ifndef VIS_HPP
 #define VIS_HPP
+
 #include "Enemy.hpp"
 #include <SFML/Graphics.hpp>
 #include <array>
 #include <vector>
 
-// Estados de comportamento do Vis
-enum class VisState {
-    Idle,
-    Moving,
-    PreAttack,
-    Attacking,
-    Cooldown
-};
+enum class VisState { Idle, Moving, PreAttack, Attacking, Cooldown };
 
 class Vis : public EnemyBase {
 public:
     Vis(sf::Texture& sheet);
+    virtual void update(float deltaTime, sf::Vector2f playerPos, const sf::FloatRect& gameBounds) override;
+    virtual void draw(sf::RenderWindow& window) override;
 
-    // Métodos principais de ciclo de vida
-    void update(float deltaTime, sf::Vector2f playerPos, const sf::FloatRect& gameBounds) override;
-    void draw(sf::RenderWindow& window) override;
-
-    // Métodos de estado e combate
     void takeDamage(int amount) override;
     void heal(int amount) override;
-
-    // Transformações e Colisões
-    sf::FloatRect getGlobalBounds() const override;
     void setPosition(const sf::Vector2f& pos) override;
+    sf::FloatRect getGlobalBounds() const override;
 
-    // Lógica do Laser (Brimstone)
     bool isLaserActive() const { return currentState == VisState::Attacking; }
     sf::FloatRect getLaserBounds() const;
 
-private:
-    // Funções auxiliares de lógica interna
+    // Para o Game.cpp detetar o dano
+    virtual std::vector<sf::FloatRect> getHazardBounds() const {
+        if (showBeam) return { beamCone.getGlobalBounds() };
+        return {};
+    }
+
+protected: // MUDADO DE PRIVATE PARA PROTECTED
+    void initRects(int offsetX = 0);
     void updateAnimation(float deltaTime);
     void handleAttackSequence(float deltaTime, const sf::FloatRect& gameBounds);
     void resetMovement();
+    sf::Vector2f lastStablePos;
 
-    // Máquina de estados e direções
     VisState currentState;
-    FaceDir faceDir;   // Direção para onde está a olhar ao andar
-    FaceDir attackDir; // Direção fixa durante o disparo do laser
-
-    // Timers e Controlo de Animação
-    float stateTimer;
-    float animTimer;
+    FaceDir faceDir;
+    FaceDir attackDir;
+    float stateTimer, animTimer, scaleFactor, distanceWalked;
     int animFrame;
-    float scaleFactor;
-    float distanceWalked;
     sf::Vector2f moveDir;
-
-    // Componentes Visuais do Laser
-    sf::ConvexShape beamCone;  // Cone trapezóide para o laser
-    sf::CircleShape beamEnd;   // Círculo no fim
+    sf::ConvexShape beamCone;
+    sf::CircleShape beamEnd;
     bool showBeam;
 
-    // Contentores de Frames (Spritesheet)
-    sf::IntRect framePreUniversal;                             // Sprite 1
-    std::array<sf::IntRect, 2> framesPreAttackDir;            // Sprites 2, 3
-    std::array<sf::IntRect, 2> framesPreAttackDown;           // Sprites 4, 5
-    std::array<sf::IntRect, 2> framesPreAttackUp;             // Sprites 6, 7
-    std::array<sf::IntRect, 8> walkFrames;                    // Sprites 8 ao 15
+    sf::IntRect framePreUniversal;
+    std::array<sf::IntRect, 2> framesPreAttackDir, framesPreAttackDown, framesPreAttackUp;
+    std::array<sf::IntRect, 8> walkFrames;
+};
+
+class DoubleVis : public Vis {
+public:
+    DoubleVis(sf::Texture& sheet);
+    void update(float deltaTime, sf::Vector2f playerPos, const sf::FloatRect& gameBounds) override;
+    void draw(sf::RenderWindow& window) override;
+
+    std::vector<sf::FloatRect> getHazardBounds() const override {
+        if (showBeam) return { beamCone.getGlobalBounds(), beamConeTras.getGlobalBounds() };
+        return {};
+    }
+
+private:
+    sf::ConvexShape beamConeTras;
+    sf::CircleShape beamEndTras;
 };
 
 #endif
