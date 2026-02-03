@@ -2,20 +2,24 @@
 #include <cmath>
 #include <cstdlib>
 
-// Configurações Visuais do Laser
 const sf::Color BLOOD_RED(160, 0, 0, 245);
 const sf::Color PURPLE_DARK(120, 0, 180, 245);
 
+// Helper para configurar o laser
 void setupBeam(sf::ConvexShape& cone, sf::CircleShape& end, FaceDir dir, sf::Vector2f pos, float timer, const sf::FloatRect& gb, float scale) {
     float length = 0.f;
-    if (dir == FaceDir::Right)      length = (gb.position.x + gb.size.x) - pos.x - (20.f * scale);
-    else if (dir == FaceDir::Left)  length = pos.x - (gb.position.x + (20.f * scale));
-    else if (dir == FaceDir::Down)  length = (gb.position.y + gb.size.y) - pos.y - (20.f * scale);
-    else if (dir == FaceDir::Up)    length = pos.y - (gb.position.y + (20.f * scale));
+    // Ajuste de offset central para o laser sair do meio do corpo (aprox 14px * scale)
+    sf::Vector2f centerOffset = { (dir == FaceDir::Left ? -14.f : 14.f) * scale, 15.f * scale };
+    sf::Vector2f beamOrigin = pos + centerOffset;
+
+    if (dir == FaceDir::Right)      length = (gb.position.x + gb.size.x) - beamOrigin.x - (10.f * scale);
+    else if (dir == FaceDir::Left)  length = beamOrigin.x - (gb.position.x + (10.f * scale));
+    else if (dir == FaceDir::Down)  length = (gb.position.y + gb.size.y) - beamOrigin.y - (10.f * scale);
+    else if (dir == FaceDir::Up)    length = beamOrigin.y - (gb.position.y + (10.f * scale));
 
     float pulse = std::sin(timer * 50.f) * 3.f;
-    float sW = 1.0f;
-    float eW = 55.f + pulse;
+    float sW = 2.0f;
+    float eW = 50.f + pulse;
 
     if (dir == FaceDir::Right || dir == FaceDir::Left) {
         float s = (dir == FaceDir::Right) ? 1.f : -1.f;
@@ -23,7 +27,7 @@ void setupBeam(sf::ConvexShape& cone, sf::CircleShape& end, FaceDir dir, sf::Vec
         cone.setPoint(1, { length * s, -eW / 2.f });
         cone.setPoint(2, { length * s, eW / 2.f });
         cone.setPoint(3, { 0.f, sW / 2.f });
-        cone.setPosition(pos + sf::Vector2f({ 9.f * s, 2.f }));
+        cone.setPosition(beamOrigin + sf::Vector2f(5.f * s, 0.f));
     }
     else {
         float s = (dir == FaceDir::Down) ? 1.f : -1.f;
@@ -31,7 +35,7 @@ void setupBeam(sf::ConvexShape& cone, sf::CircleShape& end, FaceDir dir, sf::Vec
         cone.setPoint(1, { sW / 2.f, 0.f });
         cone.setPoint(2, { eW / 2.f, length * s });
         cone.setPoint(3, { -eW / 2.f, length * s });
-        cone.setPosition(pos + sf::Vector2f({ 5.f, 8.f * s }));
+        cone.setPosition(beamOrigin + sf::Vector2f(0.f, 5.f * s));
     }
 
     end.setRadius(eW / 2.f);
@@ -44,23 +48,18 @@ void setupBeam(sf::ConvexShape& cone, sf::CircleShape& end, FaceDir dir, sf::Vec
     end.setPosition(eP);
 }
 
-// --- VIS (NORMAL) ---
-
 Vis::Vis(sf::Texture& sheet) : EnemyBase() {
     health = 25;
     scaleFactor = 2.5f;
     currentState = VisState::Moving;
-    stateTimer = animTimer = 0.f;
+    stateTimer = animTimer = distanceWalked = 0.f;
     animFrame = 0;
     showBeam = false;
 
     sprite.emplace(sheet);
     sprite->setScale({ scaleFactor, scaleFactor });
-    sprite->setOrigin({ 14.f, 15.f });
-    sprite->setPosition({ -9999.f, -9999.f });
 
     initRects(0);
-    sprite->setTextureRect(walkFrames[0]);
     resetMovement();
 
     beamCone.setPointCount(4);
@@ -69,22 +68,17 @@ Vis::Vis(sf::Texture& sheet) : EnemyBase() {
 }
 
 void Vis::initRects(int offX) {
-    // PRE-ATTACK & ATTACK (Conforme as tuas coordenadas)
     framePreUniversal = { { 530 + offX, 7 }, { 28, 30 } };
-    framesPreAttackDir[0] = { { 561 + offX, 8 }, { 30, 30 } };
-    framesPreAttackDir[1] = { { 594 + offX, 7 }, { 30, 31 } };
-    framesPreAttackDown[0] = { { 529 + offX, 40 }, { 30, 30 } };
-    framesPreAttackDown[1] = { { 560 + offX, 39 }, { 32, 31 } };
-    framesPreAttackUp[0] = { { 529 + offX, 72 }, { 30, 30 } };
-    framesPreAttackUp[1] = { { 560 + offX, 71 }, { 32, 31 } };
+    framesPreAttackDir = { sf::IntRect{{561 + offX, 8}, {30,30}}, sf::IntRect{{594 + offX, 7}, {30,31}} };
+    framesPreAttackDown = { sf::IntRect{{529 + offX, 40}, {30,30}}, sf::IntRect{{560 + offX, 39}, {32,31}} };
+    framesPreAttackUp = { sf::IntRect{{529 + offX, 72}, {30,30}}, sf::IntRect{{560 + offX, 71}, {32,31}} };
 
-    // WALK DIR (Y=103) - 4 Frames
+    // DIR (0-3)
     walkFrames[0] = { { 530 + offX, 103 }, { 28, 30 } };
     walkFrames[1] = { { 562 + offX, 103 }, { 28, 30 } };
     walkFrames[2] = { { 594 + offX, 104 }, { 28, 30 } };
     walkFrames[3] = { { 626 + offX, 103 }, { 28, 30 } };
-
-    // WALK ESQ (Y=135) - 4 Frames
+    // ESQ (4-7)
     walkFrames[4] = { { 530 + offX, 135 }, { 28, 30 } };
     walkFrames[5] = { { 562 + offX, 135 }, { 28, 30 } };
     walkFrames[6] = { { 594 + offX, 136 }, { 28, 30 } };
@@ -95,27 +89,41 @@ void Vis::update(float dt, sf::Vector2f pPos, const sf::FloatRect& gb) {
     if (health <= 0) return;
     stateTimer += dt;
 
-    sf::Vector2f myPos = (currentState == VisState::PreAttack || currentState == VisState::Attacking) ? lastStablePos : sprite->getPosition();
-
-    // Segurança de Bounds (Usando position e size)
-    if (myPos.x < gb.position.x + 20.f) myPos.x = gb.position.x + 20.f;
-    if (myPos.x > gb.position.x + gb.size.x - 20.f) myPos.x = gb.position.x + gb.size.x - 20.f;
-    if (myPos.y < gb.position.y + 20.f) myPos.y = gb.position.y + 20.f;
-    if (myPos.y > gb.position.y + gb.size.y - 20.f) myPos.y = gb.position.y + gb.size.y - 20.f;
+    sf::Vector2f myPos = sprite->getPosition();
 
     if (currentState == VisState::Moving) {
         sf::Vector2f diff = pPos - myPos;
-        if (std::abs(diff.x) < 35.f || std::abs(diff.y) < 35.f) {
-            attackDir = (std::abs(diff.x) < 35.f) ? (diff.y > 0 ? FaceDir::Down : FaceDir::Up) : (diff.x > 0 ? FaceDir::Right : FaceDir::Left);
+        // Trigger de Ataque se estiver alinhado
+        if (std::abs(diff.x) < 45.f || std::abs(diff.y) < 45.f) {
+            attackDir = (std::abs(diff.x) < 45.f) ? (diff.y > 0 ? FaceDir::Down : FaceDir::Up) : (diff.x > 0 ? FaceDir::Right : FaceDir::Left);
             currentState = VisState::PreAttack;
             stateTimer = 0;
             lastStablePos = myPos;
         }
         else {
-            sprite->move(moveDir * 95.f * dt);
+            // Lógica de Movimento Igual ao Chubby
+            sf::Vector2f movement = moveDir * 105.f * dt;
+            sf::Vector2f nextPos = myPos + movement;
+            sf::Vector2f size(28.f * scaleFactor, 30.f * scaleFactor);
+
+            bool canMove = true;
+            if (nextPos.x < gb.position.x || (nextPos.x + size.x) >(gb.position.x + gb.size.x)) canMove = false;
+            if (nextPos.y < gb.position.y || (nextPos.y + size.y) >(gb.position.y + gb.size.y)) canMove = false;
+
+            if (canMove) {
+                sprite->move(movement);
+                distanceWalked += std::sqrt(movement.x * movement.x + movement.y * movement.y);
+            }
+            else {
+                distanceWalked = 201.f; // Força nova direção
+            }
+
             updateAnimation(dt);
-            distanceWalked += 95.f * dt;
-            if (distanceWalked > 180.f) { currentState = VisState::Idle; stateTimer = 0; }
+
+            if (distanceWalked >= 200.f) {
+                currentState = VisState::Idle;
+                stateTimer = 0;
+            }
         }
     }
     else if (currentState == VisState::PreAttack || currentState == VisState::Attacking) {
@@ -126,48 +134,65 @@ void Vis::update(float dt, sf::Vector2f pPos, const sf::FloatRect& gb) {
             if (attackDir == FaceDir::Right || attackDir == FaceDir::Left) sprite->setTextureRect(framesPreAttackDir[1]);
             else if (attackDir == FaceDir::Down) sprite->setTextureRect(framesPreAttackDown[1]);
             else sprite->setTextureRect(framesPreAttackUp[1]);
-            setupBeam(beamCone, beamEnd, attackDir, lastStablePos, stateTimer, gb, scaleFactor);
-            if (stateTimer >= 1.4f) { showBeam = false; currentState = VisState::Cooldown; stateTimer = 0; sprite->setPosition(lastStablePos); }
-        }
-        // SHAKE
-        float shakeAmt = (currentState == VisState::Attacking) ? 3.5f : (stateTimer > 0.4f ? 2.5f : 1.0f);
-        float ox = ((std::rand() % 100) / 100.f) * shakeAmt - (shakeAmt / 2.f);
-        float oy = ((std::rand() % 100) / 100.f) * shakeAmt - (shakeAmt / 2.f);
-        sprite->setPosition(lastStablePos + sf::Vector2f(ox, oy));
-    }
-    else if (stateTimer > 0.7f) {
-        currentState = VisState::Moving;
-        stateTimer = 0;
-        resetMovement();
-    }
-    handleHitFlash();
-}
 
-void Vis::handleAttackSequence(float dt, const sf::FloatRect& gb) {
-    if (stateTimer < 0.3f) {
-        sprite->setTextureRect(framePreUniversal);
+            setupBeam(beamCone, beamEnd, attackDir, lastStablePos, stateTimer, gb, scaleFactor);
+
+            if (stateTimer >= 1.3f) {
+                showBeam = false;
+                currentState = VisState::Cooldown;
+                stateTimer = 0;
+                sprite->setPosition(lastStablePos);
+            }
+        }
+        // Shake
+        float shake = (currentState == VisState::Attacking) ? 4.0f : 1.5f;
+        sprite->setPosition(lastStablePos + sf::Vector2f((std::rand() % 10 - 5) / 5.f * shake, (std::rand() % 10 - 5) / 5.f * shake));
     }
-    else if (stateTimer < 0.8f) {
-        if (attackDir == FaceDir::Right || attackDir == FaceDir::Left) sprite->setTextureRect(framesPreAttackDir[0]);
-        else if (attackDir == FaceDir::Down) sprite->setTextureRect(framesPreAttackDown[0]);
-        else sprite->setTextureRect(framesPreAttackUp[0]);
-        sprite->setScale({ (attackDir == FaceDir::Left ? -scaleFactor : scaleFactor), scaleFactor });
+    else if (currentState == VisState::Idle || currentState == VisState::Cooldown) {
+        if ((currentState == VisState::Idle && stateTimer > 0.5f) || (currentState == VisState::Cooldown && stateTimer > 0.8f)) {
+            resetMovement();
+            currentState = VisState::Moving;
+            stateTimer = 0;
+        }
     }
-    else {
-        showBeam = true;
-        currentState = VisState::Attacking;
-        stateTimer = 0;
-    }
+
+    handleHitFlash();
 }
 
 void Vis::updateAnimation(float dt) {
     animTimer += dt;
     if (animTimer >= 0.12f) {
         animTimer = 0;
-        animFrame = (animFrame + 1) % 4;
+        animFrame = (animFrame + 1) % 8; // Ciclo DIR 1234 -> ESQ 1234
     }
-    int baseIndex = (faceDir == FaceDir::Left) ? 4 : 0;
-    sprite->setTextureRect(walkFrames[baseIndex + animFrame]);
+
+    sprite->setTextureRect(walkFrames[animFrame]);
+
+    // Flip Lógica Chubby
+    float curScaleX = (faceDir == FaceDir::Left) ? -scaleFactor : scaleFactor;
+    sprite->setScale({ curScaleX, scaleFactor });
+    sprite->setOrigin({ (faceDir == FaceDir::Left ? 28.f : 0.f), 0.f });
+}
+
+void Vis::handleAttackSequence(float dt, const sf::FloatRect& gb) {
+    // Manter o flip correto durante o carregamento do ataque
+    float curScaleX = (attackDir == FaceDir::Left) ? -scaleFactor : scaleFactor;
+    sprite->setScale({ curScaleX, scaleFactor });
+    sprite->setOrigin({ (attackDir == FaceDir::Left ? 28.f : 0.f), 0.f });
+
+    if (stateTimer < 0.3f) {
+        sprite->setTextureRect(framePreUniversal);
+    }
+    else if (stateTimer < 0.7f) {
+        if (attackDir == FaceDir::Right || attackDir == FaceDir::Left) sprite->setTextureRect(framesPreAttackDir[0]);
+        else if (attackDir == FaceDir::Down) sprite->setTextureRect(framesPreAttackDown[0]);
+        else sprite->setTextureRect(framesPreAttackUp[0]);
+    }
+    else {
+        showBeam = true;
+        currentState = VisState::Attacking;
+        stateTimer = 0;
+    }
 }
 
 void Vis::draw(sf::RenderWindow& window) {
@@ -180,34 +205,38 @@ void Vis::draw(sf::RenderWindow& window) {
 void Vis::resetMovement() {
     distanceWalked = 0.f;
     int r = std::rand() % 4;
-    if (r == 0) { moveDir = { 1.f, 0.f };  faceDir = FaceDir::Right; }
-    else if (r == 1) { moveDir = { -1.f, 0.f }; faceDir = FaceDir::Left; }
-    else if (r == 2) { moveDir = { 0.f, 1.f };  faceDir = FaceDir::Down; }
-    else { moveDir = { 0.f, -1.f }; faceDir = FaceDir::Up; }
-    if (sprite) sprite->setScale({ (faceDir == FaceDir::Left ? -scaleFactor : scaleFactor), scaleFactor });
+    faceDir = static_cast<FaceDir>(r);
+
+    if (faceDir == FaceDir::Right)      moveDir = { 1.f, 0.f };
+    else if (faceDir == FaceDir::Left) moveDir = { -1.f, 0.f };
+    else if (faceDir == FaceDir::Down) moveDir = { 0.f, 1.f };
+    else                               moveDir = { 0.f, -1.f };
+
+    // Update inicial de escala/origem
+    float curScaleX = (faceDir == FaceDir::Left) ? -scaleFactor : scaleFactor;
+    sprite->setScale({ curScaleX, scaleFactor });
+    sprite->setOrigin({ (faceDir == FaceDir::Left ? 28.f : 0.f), 0.f });
+}
+
+sf::FloatRect Vis::getGlobalBounds() const {
+    if (!sprite) return {};
+    sf::FloatRect b = sprite->getGlobalBounds();
+    sf::Vector2f p = (currentState == VisState::Attacking || currentState == VisState::PreAttack) ? lastStablePos : sprite->getPosition();
+    // Ajuste de hitbox baseado na origem dinâmica
+    float offsetX = (faceDir == FaceDir::Left) ? -28.f * scaleFactor : 0.f;
+    b.position = p + sf::Vector2f(offsetX, 0.f);
+    return b;
 }
 
 void Vis::takeDamage(int amount) { health -= amount; isHit = true; hitClock.restart(); }
 void Vis::heal(int amount) { health += amount; isHealing = true; healFlashClock.restart(); }
 void Vis::setPosition(const sf::Vector2f& pos) { if (sprite) { sprite->setPosition(pos); lastStablePos = pos; } }
 
-sf::FloatRect Vis::getGlobalBounds() const {
-    if (sprite) {
-        sf::FloatRect b = sprite->getGlobalBounds();
-        b.position.x = lastStablePos.x - sprite->getOrigin().x * scaleFactor;
-        b.position.y = lastStablePos.y - sprite->getOrigin().y * scaleFactor;
-        return b;
-    }
-    return sf::FloatRect({});
-}
-
-sf::FloatRect Vis::getLaserBounds() const { return showBeam ? beamCone.getGlobalBounds() : sf::FloatRect({}); }
-
 // --- DOUBLE VIS ---
 
 DoubleVis::DoubleVis(sf::Texture& sheet) : Vis(sheet) {
-    health = 45;
-    initRects(139);
+    health = 50;
+    initRects(138);
     beamConeTras.setPointCount(4);
     beamConeTras.setFillColor(PURPLE_DARK);
     beamEndTras.setFillColor(PURPLE_DARK);
@@ -231,5 +260,5 @@ void DoubleVis::draw(sf::RenderWindow& window) {
         window.draw(beamEnd);
         window.draw(beamEndTras);
     }
-    Vis::draw(window);
+    if (sprite) window.draw(*sprite);
 }

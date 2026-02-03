@@ -123,7 +123,7 @@ void Room::spawnEnemies(
         else {
             int rDouble = rand() % 100;
 
-            if (rDouble < 30) {
+            if (rDouble < 45) {
                 // 30% de chance de spawnar o DoubleVis (Irmão Buffed)
                 auto dv = std::make_unique<DoubleVis>(visSheet);
                 dv->setPosition(getRandomPos());
@@ -132,7 +132,7 @@ void Room::spawnEnemies(
             }
             else {
                 // 70% de chance de spawnar 2 ou 3 Vis normais
-                int count = 2 + rand() % 2;
+                int count = 5 + rand() % 5;
                 for (int i = 0; i < count; i++) {
                     auto v = std::make_unique<Vis>(visSheet);
                     v->setPosition(getRandomPos());

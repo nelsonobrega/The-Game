@@ -11,29 +11,25 @@ enum class VisState { Idle, Moving, PreAttack, Attacking, Cooldown };
 class Vis : public EnemyBase {
 public:
     Vis(sf::Texture& sheet);
-    virtual void update(float deltaTime, sf::Vector2f playerPos, const sf::FloatRect& gameBounds) override;
-    virtual void draw(sf::RenderWindow& window) override;
+    void update(float deltaTime, sf::Vector2f playerPos, const sf::FloatRect& gameBounds) override;
+    void draw(sf::RenderWindow& window) override;
 
     void takeDamage(int amount) override;
     void heal(int amount) override;
     void setPosition(const sf::Vector2f& pos) override;
     sf::FloatRect getGlobalBounds() const override;
 
-    bool isLaserActive() const { return currentState == VisState::Attacking; }
-    sf::FloatRect getLaserBounds() const;
-
-    // Para o Game.cpp detetar o dano
-    virtual std::vector<sf::FloatRect> getHazardBounds() const {
+    virtual std::vector<sf::FloatRect> getHazardBounds() const override {
         if (showBeam) return { beamCone.getGlobalBounds() };
         return {};
     }
 
-protected: // MUDADO DE PRIVATE PARA PROTECTED
-    void initRects(int offsetX = 0);
+protected:
+    void initRects(int offsetX);
     void updateAnimation(float deltaTime);
     void handleAttackSequence(float deltaTime, const sf::FloatRect& gameBounds);
     void resetMovement();
-    sf::Vector2f lastStablePos;
+    void applyBounds(sf::Vector2f& pos, const sf::FloatRect& gb);
 
     VisState currentState;
     FaceDir faceDir;
@@ -41,6 +37,8 @@ protected: // MUDADO DE PRIVATE PARA PROTECTED
     float stateTimer, animTimer, scaleFactor, distanceWalked;
     int animFrame;
     sf::Vector2f moveDir;
+    sf::Vector2f lastStablePos; // Posição onde ele "tranca" para disparar
+
     sf::ConvexShape beamCone;
     sf::CircleShape beamEnd;
     bool showBeam;
