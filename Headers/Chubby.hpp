@@ -4,7 +4,6 @@
 #include "Enemy.hpp"
 
 enum class ChubbyState { Idle, Moving, Attacking, Recovering };
-enum class FaceDir { Up, Down, Left, Right };
 
 class Chubby : public EnemyBase {
 public:

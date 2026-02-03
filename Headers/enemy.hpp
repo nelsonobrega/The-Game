@@ -12,6 +12,7 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846f
 #endif
+enum class FaceDir { Up, Down, Left, Right, None };
 
 struct EnemyProjectile {
     sf::Sprite sprite;
@@ -33,6 +34,11 @@ public:
 
     virtual void setPosition(const sf::Vector2f& pos) {
         if (sprite) sprite->setPosition(pos);
+    }
+
+    // Retorna todas as áreas que causam dano (Lasers, poças, etc)
+    virtual std::vector<sf::FloatRect> getHazardBounds() const {
+        return {}; // Por padrão, inimigos normais não têm áreas extras
     }
 
     virtual void update(float deltaTime, sf::Vector2f playerPosition, const sf::FloatRect& gameBounds) = 0;
